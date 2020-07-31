@@ -44,6 +44,24 @@ entity AppCore is
       rxMasters : in  AxiStreamMasterArray(AXIS_SIZE_G-1 downto 0);
       rxSlaves  : out AxiStreamSlaveArray(AXIS_SIZE_G-1 downto 0);
       rxCtrl    : out AxiStreamCtrlArray(AXIS_SIZE_G-1 downto 0);
+      -- Add CRYO pins for FEMB
+      asicGlblRst   : out sl;
+      asicPulse     : out sl;
+      asicSaciClk_p : out sl;
+      asicSaciClk_n : out sl;
+      asicSaciCmd_p : out sl;
+      asicSaciCmd_n : out sl;
+      asicSaciRsp_p : in  sl;
+      asicSaciRsp_n : in  sl;      
+      asicSmpClk_p  : out sl;
+      asicSmpClk_n  : out sl;
+      asicSaciSel   : out slv(1 downto 0);
+      asicR0_p      : out sl;
+      asicR0_n      : out sl;
+      asicD0out_p   : in  slv(1 downto 0);
+      asicD0out_n   : in  slv(1 downto 0);
+      asicD1out_p   : in  slv(1 downto 0);
+      asicD1out_n   : in  slv(1 downto 0);
       -- ADC Ports
       vPIn      : in  sl;
       vNIn      : in  sl);
@@ -206,6 +224,24 @@ begin
          -- Microblaze stream
          mbTxMaster      => mbTxMaster,
          mbTxSlave       => mbTxSlave,
+         -- ASIC FEMB
+         asicGlblRst   => asicGlblRst, --: out sl;
+         asicPulse     => asicPulse, --: out sl;
+         asicSaciClk_p => asicSaciClk_p, --: out sl;
+         asicSaciClk_n => asicSaciClk_n, --: out sl;
+         asicSaciCmd_p => asicSaciCmd_p, --: out sl;
+         asicSaciCmd_n => asicSaciCmd_n, --: out sl;
+         asicSaciRsp_p => asicSaciRsp_p, --: in  sl;
+         asicSaciRsp_n => asicSaciRsp_n, --: in  sl;      
+         asicSmpClk_p  => asicSmpClk_p, --: out sl;
+         asicSmpClk_n  => asicSmpClk_n, --: out sl;
+         asicSaciSel   => asicSaciSel, --: out slv(1 downto 0);
+         asicR0_p      => asicR0_p, --: out sl;
+         asicR0_n      => asicR0_n, --: out sl;
+         asicD0out_p   => asicD0out_p, --: in  slv(1 downto 0);
+         asicD0out_n   => asicD0out_n, --: in  slv(1 downto 0);
+         asicD1out_p   => asicD1out_p, --: in  slv(1 downto 0);
+         asicD1out_n   => asicD1out_n, --: in  slv(1 downto 0);         
          -- ADC Ports
          vPIn            => vPIn,
          vNIn            => vNIn);

@@ -24,6 +24,9 @@ use surf.AxiLitePkg.all;
 use surf.AxiStreamPkg.all;
 use surf.SsiPkg.all;
 
+library unisim;
+use unisim.vcomponents.all;
+
 entity AppReg is
    generic (
       TPD_G             : time    := 1 ns;
@@ -58,6 +61,24 @@ entity AppReg is
       -- MB Interface
       mbTxMaster      : out AxiStreamMasterType;
       mbTxSlave       : in  AxiStreamSlaveType;
+      -- Add CRYO pins for FEMB
+      asicGlblRst   : out sl;
+      asicPulse     : out sl;
+      asicSaciClk_p : out sl;
+      asicSaciClk_n : out sl;
+      asicSaciCmd_p : out sl;
+      asicSaciCmd_n : out sl;
+      asicSaciRsp_p : in  sl;
+      asicSaciRsp_n : in  sl;      
+      asicSmpClk_p  : out sl;
+      asicSmpClk_n  : out sl;
+      asicSaciSel   : out slv(1 downto 0);
+      asicR0_p      : out sl;
+      asicR0_n      : out sl;
+      asicD0out_p   : in  slv(1 downto 0);
+      asicD0out_n   : in  slv(1 downto 0);
+      asicD1out_p   : in  slv(1 downto 0);
+      asicD1out_n   : in  slv(1 downto 0);
       -- ADC Ports
       vPIn            : in  sl;
       vNIn            : in  sl);
@@ -79,7 +100,10 @@ architecture mapping of AppReg is
    constant HLS_INDEX_C      : natural := 6;
    constant COMM_INDEX_C     : natural := 7;
    constant AXIS_MON_INDEX_C : natural := 8;
-   constant TEST_INDEX_C     : natural := 9;
+--   constant TEST_INDEX_C     : natural := 9;
+   constant SACIREGS_INDEX_C : natural := 9;
+
+   constant SACIREGS_BASE_ADDR_C            : slv(31 downto 0) := X"88000000";--8
 
    -- constant AXI_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXI_MASTERS_C-1 downto 0) := genAxiLiteConfig(NUM_AXI_MASTERS_C, x"0000_0000", 20, 16);
    constant AXI_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXI_MASTERS_C-1 downto 0) := (
@@ -119,10 +143,14 @@ architecture mapping of AppReg is
          baseAddr      => x"0008_0000",
          addrBits      => 16,
          connectivity  => x"FFFF"),
-      TEST_INDEX_C     => (
-         baseAddr      => x"8000_0000",
-         addrBits      => 31,
-         connectivity  => x"FFFF"));
+--      TEST_INDEX_C     => (
+--         baseAddr      => x"8000_0000",
+--         addrBits      => 31,
+--         connectivity  => x"FFFF"),
+      SACIREGS_INDEX_C => (
+         baseAddr      => SACIREGS_BASE_ADDR_C,
+         addrBits      => 24,
+         connectivity  => x"FFFF"));         
 
    signal mAxilWriteMaster : AxiLiteWriteMasterType;
    signal mAxilWriteSlave  : AxiLiteWriteSlaveType;
@@ -144,6 +172,12 @@ architecture mapping of AppReg is
 
    signal irqReq   : slv(7 downto 0);
    signal irqCount : slv(27 downto 0);
+   
+   constant NUMBER_OF_ASICS_C : integer := 2;
+
+   signal iSaciClk  : sl;
+   signal iSaciCmd  : sl;
+   signal iAsicSaciRsp : sl;
 
 begin
 
@@ -431,10 +465,47 @@ begin
    commWriteMaster                <= mAxilWriteMasters(COMM_INDEX_C);
    mAxilWriteSlaves(COMM_INDEX_C) <= commWriteSlave;
 
-   -------------------------------------------------------------
-   -- Map the AXI-Lite to Test bus (never respond with an error)
-   -------------------------------------------------------------
-   mAxilReadSlaves(TEST_INDEX_C)  <= AXI_LITE_READ_SLAVE_EMPTY_OK_C;
-   mAxilWriteSlaves(TEST_INDEX_C) <= AXI_LITE_WRITE_SLAVE_EMPTY_OK_C;
+--   -------------------------------------------------------------
+--   -- Map the AXI-Lite to Test bus (never respond with an error)
+--   -------------------------------------------------------------
+--   mAxilReadSlaves(TEST_INDEX_C)  <= AXI_LITE_READ_SLAVE_EMPTY_OK_C;
+--   mAxilWriteSlaves(TEST_INDEX_C) <= AXI_LITE_WRITE_SLAVE_EMPTY_OK_C;
+   
+   
+   U_SaciClkObuf : OBUFDS port map (I => iSaciClk, O => asicSaciClk_p, OB => asicSaciClk_n);
+   U_SaciCmdObuf : OBUFDS port map (I => iSaciCmd, O => asicSaciCmd_p, OB => asicSaciCmd_n);
+   U_SaciRspIbuf : IBUFDS port map (I => asicSaciRsp_p, IB => asicSaciRsp_n, O => iAsicSaciRsp);
+   
+    --------------------------------------------
+   -- SACI interface controller              --
+   -------------------------------------------- 
+   U_AxiLiteSaciMaster : entity surf.AxiLiteSaciMaster
+   generic map (
+      AXIL_CLK_PERIOD_G  => 10.0E-9, -- In units of seconds
+      AXIL_TIMEOUT_G     => 1.0E-3,  -- In units of seconds
+      SACI_CLK_PERIOD_G  => 0.25E-6, -- In units of seconds
+      SACI_CLK_FREERUN_G => false,
+      SACI_RSP_BUSSED_G  => true,
+      SACI_NUM_CHIPS_G   => 2)
+   port map (
+      -- SACI interface
+      saciClk           => iSaciClk,
+      saciCmd           => iSaciCmd,
+      saciSelL          => asicSaciSel,
+      saciRsp(0)        => iAsicSaciRsp,
+      -- AXI-Lite Register Interface
+      axilClk           => clk,
+      axilRst           => rst,
+      axilReadMaster    => mAxilReadMasters(SACIREGS_INDEX_C),
+      axilReadSlave     => mAxilReadSlaves(SACIREGS_INDEX_C),
+      axilWriteMaster   => mAxilWriteMasters(SACIREGS_INDEX_C),
+      axilWriteSlave    => mAxilWriteSlaves(SACIREGS_INDEX_C)
+   );
+
+   -- Unused
+   asicGlblRst   <= rst; --: out sl;
+   asicPulse     <= '0'; --: out sl;
+   U_AsicSmpClk: OBUFDS port map (I => '0', O => asicSmpClk_p, OB => asicSmpClk_n);
+   U_AsicR0    : OBUFDS port map (I => '0', O => asicR0_p, OB => asicR0_n);
 
 end mapping;
