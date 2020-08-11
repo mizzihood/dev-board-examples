@@ -483,7 +483,7 @@ begin
    generic map (
       AXIL_CLK_PERIOD_G  => 10.0E-9, -- In units of seconds
       AXIL_TIMEOUT_G     => 1.0E-3,  -- In units of seconds
-      SACI_CLK_PERIOD_G  => 0.25E-6, -- In units of seconds
+      SACI_CLK_PERIOD_G  => 2.5E-6,  -- In units of seconds
       SACI_CLK_FREERUN_G => false,
       SACI_RSP_BUSSED_G  => true,
       SACI_NUM_CHIPS_G   => 2)
@@ -503,8 +503,8 @@ begin
    );
 
    -- Unused
-   asicGlblRst   <= rst; --: out sl;
-   asicPulse     <= '0'; --: out sl;
+   asicGlblRst   <= not(rst); --: out sl;
+   asicPulse     <= '0';      --: out sl;
    U_AsicSmpClk: OBUFDS port map (I => '0', O => asicSmpClk_p, OB => asicSmpClk_n);
    U_AsicR0    : OBUFDS port map (I => '0', O => asicR0_p, OB => asicR0_n);
 
