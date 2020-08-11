@@ -53,6 +53,8 @@ entity Kcu105GigECryo is
       phyMdio    : inout sl;
       phyRstN    : out   sl;            -- active low
       phyIrqN    : in    sl;            -- active low
+      -- Switch
+      rstSwitch  : in    sl;
       -- Add CRYO pins for FEMB
       asicGlblRst   : out sl;
       asicPulse     : out sl;
@@ -216,6 +218,8 @@ begin
    -------------------
    -- Application Core
    -------------------
+   asicGlblRst <= gpioDip(0); --rstSwitch;
+   --
    U_App : entity work.AppCore
       generic map (
          TPD_G           => TPD_G,
@@ -236,7 +240,7 @@ begin
          txSlaves  => txSlaves,
          rxMasters => rxMasters,
          rxSlaves  => rxSlaves,
-         asicGlblRst   => asicGlblRst, --: out sl;
+         asicGlblRst   => open, -- asicGlblRst, --: out sl;
          asicPulse     => asicPulse, --: out sl;
          asicSaciClk_p => asicSaciClk_p, --: out sl;
          asicSaciClk_n => asicSaciClk_n, --: out sl;

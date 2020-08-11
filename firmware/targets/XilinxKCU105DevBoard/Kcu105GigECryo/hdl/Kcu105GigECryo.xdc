@@ -58,6 +58,8 @@ set_clock_groups -asynchronous -group [get_clocks {ethClk125MHz}] -group [get_cl
 
 # Adding pins for CRYO
 #################
+# Cheeseball switch (this is already mapped to gpio[0]!)  =(
+#set_property -dict { PACKAGE_PIN  AN16 IOSTANDARD LVCMOS12 } [get_ports { rstSwitch }]
 # FEMB-specific constraints
 set_property -dict { PACKAGE_PIN  V27 IOSTANDARD LVCMOS18 } [get_ports { asicGlblRst }]
 set_property -dict { PACKAGE_PIN  V28 IOSTANDARD LVCMOS18 } [get_ports { pulse }]
