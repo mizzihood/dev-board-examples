@@ -7,6 +7,42 @@
 ## may be copied, modified, propagated, or distributed except according to
 ## the terms contained in the LICENSE.txt file.
 ##############################################################################
+
+####################################
+## Application Timing Constraints ##
+####################################
+
+##########################
+## Misc. Configurations ##
+##########################
+create_generated_clock -name appClk        [get_pins U_App/U_Reg/U_CoreClockGen/MmcmGen.U_Mmcm/CLKOUT0]
+create_generated_clock -name idelayCtrlClk [get_pins U_App/U_Reg/U_CoreClockGen/MmcmGen.U_Mmcm/CLKOUT1]
+create_generated_clock -name adcClk        [get_pins U_App/U_Reg/U_CoreClockGen/MmcmGen.U_Mmcm/CLKOUT2]
+create_generated_clock -name bitClk        [get_pins U_App/U_Reg/U_iserdesClockGen/MmcmGen.U_Mmcm/CLKOUT0]
+create_generated_clock -name deserClk      [get_pins U_App/U_Reg/U_iserdesClockGen/MmcmGen.U_Mmcm/CLKOUT1]
+create_generated_clock -name byteClk       [get_pins U_App/U_Reg/U_iserdesClockGen/MmcmGen.U_Mmcm/CLKOUT2]
+create_generated_clock -name asicRdClk     [get_pins U_App/U_Reg/U_iserdesClockGen/MmcmGen.U_Mmcm/CLKOUT3]
+
+set_clock_groups -asynchronous -group [get_clocks sysClk]  -group [get_clocks appClk]
+set_clock_groups -asynchronous -group [get_clocks sysClk]  -group [get_clocks bitClk]
+set_clock_groups -asynchronous -group [get_clocks sysClk]  -group [get_clocks byteClk]
+set_clock_groups -asynchronous -group [get_clocks sysClk]  -group [get_clocks asicRdClk]
+set_clock_groups -asynchronous -group [get_clocks sysClk]  -group [get_clocks adcBitClkR]
+set_clock_groups -asynchronous -group [get_clocks appClk]  -group [get_clocks byteClk]
+set_clock_groups -asynchronous -group [get_clocks appClk]  -group [get_clocks deserClk]
+set_clock_groups -asynchronous -group [get_clocks dnaClk]  -group [get_clocks byteClk]
+set_clock_groups -asynchronous -group [get_clocks byteClk] -group [get_clocks deserClk]
+set_clock_groups -asynchronous -group [get_clocks appClk]  -group [get_clocks adcBitClkR]
+set_clock_groups -asynchronous -group [get_clocks appClk]  -group [get_clocks adcBitClkRD4]
+set_clock_groups -asynchronous -group [get_clocks appClk]  -group [get_clocks adcMonDoClkP]
+set_clock_groups -asynchronous -group [get_clocks appClk]  -group [get_clocks bitClk]
+set_clock_groups -asynchronous -group [get_clocks appClk]  -group [get_clocks asicRdClk]
+set_clock_groups -asynchronous -group [get_clocks byteClk] -group [get_clocks adcBitClkR]
+set_clock_groups -asynchronous -group [get_clocks byteClk] -group [get_clocks adcBitClkRD4]
+set_clock_groups -asynchronous -group [get_clocks appClk]  -group [get_clocks idelayCtrlClk]
+#set_clock_groups -asynchronous -group [get_clocks -of_objects [get_pins U_Core/U_Mmcm/PllGen.U_Pll/CLKOUT0]] -group [get_clocks -of_objects [get_pins U_App/U_CoreClockGen/MmcmGen.U_Mmcm/CLKOUT2]]
+
+
 # I/O Port Mapping
 
 set_property -dict { PACKAGE_PIN V12 IOSTANDARD ANALOG } [get_ports { vPIn }]
@@ -85,3 +121,9 @@ set_property -dict { PACKAGE_PIN  AA20 IOSTANDARD LVDS } [get_ports { asicD0out_
 set_property -dict { PACKAGE_PIN  AB20 IOSTANDARD LVDS } [get_ports { asicD0out_n[1] }]
 set_property -dict { PACKAGE_PIN  U21 IOSTANDARD LVDS } [get_ports { asicD1out_p[1] }]
 set_property -dict { PACKAGE_PIN  U22 IOSTANDARD LVDS } [get_ports { asicD1out_n[1] }]
+
+# Jitter cleaner pins
+set_property -dict { PACKAGE_PIN W28 IOSTANDARD LVCMOS18 } [get_ports { pllSck }]
+set_property -dict { PACKAGE_PIN U27  IOSTANDARD LVCMOS18 } [get_ports { pllSdo }]
+set_property -dict { PACKAGE_PIN Y28  IOSTANDARD LVCMOS18 } [get_ports { pllSdi }]
+set_property -dict { PACKAGE_PIN U26  IOSTANDARD LVCMOS18 } [get_ports { pllCsL }]

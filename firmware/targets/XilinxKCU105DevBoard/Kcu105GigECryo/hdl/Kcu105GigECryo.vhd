@@ -73,6 +73,11 @@ entity Kcu105GigECryo is
       asicD0out_n   : in  slv(1 downto 0);
       asicD1out_p   : in  slv(1 downto 0);
       asicD1out_n   : in  slv(1 downto 0);
+      -- Add jitter cleaner pins
+      pllSck        : out sl;
+      pllSdo        : in  sl;
+      pllSdi        : out sl;
+      pllCsL        : out sl;
       -- 300Mhz System Clock
       sysClk300P : in    sl;
       sysClk300N : in    sl);
@@ -218,7 +223,7 @@ begin
    -------------------
    -- Application Core
    -------------------
-   asicGlblRst <= gpioDip(0); --rstSwitch;
+   --asicGlblRst <= gpioDip(0); --rstSwitch;
    --
    U_App : entity work.AppCore
       generic map (
@@ -240,8 +245,8 @@ begin
          txSlaves  => txSlaves,
          rxMasters => rxMasters,
          rxSlaves  => rxSlaves,
-         asicGlblRst   => open, -- asicGlblRst, --: out sl;
-         asicPulse     => asicPulse, --: out sl;
+         asicGlblRst   => asicGlblRst,   --: out sl;
+         asicPulse     => asicPulse,     --: out sl;
          asicSaciClk_p => asicSaciClk_p, --: out sl;
          asicSaciClk_n => asicSaciClk_n, --: out sl;
          asicSaciCmd_p => asicSaciCmd_p, --: out sl;
@@ -257,6 +262,11 @@ begin
          asicD0out_n   => asicD0out_n, --: in  slv(1 downto 0);
          asicD1out_p   => asicD1out_p, --: in  slv(1 downto 0);
          asicD1out_n   => asicD1out_n, --: in  slv(1 downto 0);
+         -- Jitter cleaner pins
+         pllSck        => pllSck, -- : out sl;
+         pllSdo        => pllSdo, -- : in  sl;
+         pllSdi        => pllSdi, -- : out sl;
+         pllCsL        => pllCsL, -- : out sl;
          -- ADC Ports
          vPIn      => vPIn,
          vNIn      => vNIn);

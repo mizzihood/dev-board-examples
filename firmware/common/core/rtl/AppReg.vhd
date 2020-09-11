@@ -23,6 +23,10 @@ use surf.StdRtlPkg.all;
 use surf.AxiLitePkg.all;
 use surf.AxiStreamPkg.all;
 use surf.SsiPkg.all;
+use surf.SsiCmdMasterPkg.all;
+use surf.Pgp2bPkg.all;
+
+use work.AppPkg.all;
 
 library unisim;
 use unisim.vcomponents.all;
@@ -31,6 +35,7 @@ entity AppReg is
    generic (
       TPD_G             : time    := 1 ns;
       BUILD_INFO_G      : BuildInfoType;
+      SIMULATION_G      : boolean := false;
       PRBS_TX_BATCHER_G : boolean := false;
       CLK_FREQUENCY_G   : real    := 156.25E+6;
       XIL_DEVICE_G      : string  := "7SERIES");
@@ -38,11 +43,12 @@ entity AppReg is
       -- Clock and Reset
       clk             : in  sl;
       rst             : in  sl;
-      -- AXI-Lite interface
-      axilWriteMaster : in  AxiLiteWriteMasterType;
-      axilWriteSlave  : out AxiLiteWriteSlaveType;
-      axilReadMaster  : in  AxiLiteReadMasterType;
-      axilReadSlave   : out AxiLiteReadSlaveType;
+      -- AXI-Lite Register Interface (sysClk domain)
+      -- Register Address Range = [0x80000000:0xFFFFFFFF]
+      sAxilReadMaster  : in    AxiLiteReadMasterType;
+      sAxilReadSlave   : out   AxiLiteReadSlaveType;
+      sAxilWriteMaster : in    AxiLiteWriteMasterType;
+      sAxilWriteSlave  : out   AxiLiteWriteSlaveType;
       -- Communication AXI-Lite Interface
       commWriteMaster : out AxiLiteWriteMasterType;
       commWriteSlave  : in  AxiLiteWriteSlaveType;
@@ -79,9 +85,16 @@ entity AppReg is
       asicD0out_n   : in  slv(1 downto 0);
       asicD1out_p   : in  slv(1 downto 0);
       asicD1out_n   : in  slv(1 downto 0);
+      -- Add jitter cleaner pins
+      pllSck        : out sl;
+      pllSdo        : in  sl;
+      pllSdi        : out sl;
+      pllCsL        : out sl;
+      -- SSI commands 
+      ssiCmd        : in  SsiCmdMasterType := SSI_CMD_MASTER_INIT_C;
       -- ADC Ports
-      vPIn            : in  sl;
-      vNIn            : in  sl);
+      vPIn          : in  sl;
+      vNIn          : in  sl);
 end AppReg;
 
 architecture mapping of AppReg is
@@ -89,7 +102,9 @@ architecture mapping of AppReg is
    constant SHARED_MEM_WIDTH_C : positive                           := 13;
    constant IRQ_ADDR_C         : slv(SHARED_MEM_WIDTH_C-1 downto 0) := (others => '1');
 
-   constant NUM_AXI_MASTERS_C : natural := 10;
+   constant NUM_AXI_MASTERS_C : natural := 15;
+
+--   constant NUMBER_OF_ASICS_C : natural := 2;
 
    constant VERSION_INDEX_C  : natural := 0;
    constant XADC_INDEX_C     : natural := 1;
@@ -101,9 +116,19 @@ architecture mapping of AppReg is
    constant COMM_INDEX_C     : natural := 7;
    constant AXIS_MON_INDEX_C : natural := 8;
 --   constant TEST_INDEX_C     : natural := 9;
-   constant SACIREGS_INDEX_C : natural := 9;
+   constant PLLREGS_AXI_INDEX_C         : natural := 9;
+   constant TRIG_REG_AXI_INDEX_C        : natural := 10;
+   constant SACIREGS_INDEX_C            : natural := 11;
+   constant CLK_JIT_CLR_REG_AXI_INDEX_C : natural := 12;
+   constant APP_REG_AXI_INDEX_C         : natural := 13;
+   constant PLL2REGS_AXI_INDEX_C        : natural := 14;
 
-   constant SACIREGS_BASE_ADDR_C            : slv(31 downto 0) := X"88000000";--8
+   constant PLLREGS_AXI_BASE_ADDR_C         : slv(31 downto 0) := X"8000_0000";--9
+   constant TRIG_REG_AXI_BASE_ADDR_C        : slv(31 downto 0) := X"8100_0000";--10
+   constant SACIREGS_BASE_ADDR_C            : slv(31 downto 0) := X"8800_0000";--11
+   constant CLK_JIT_CLR_REG_AXI_ADDR_C      : slv(31 downto 0) := X"9300_0000";--12
+   constant APP_REG_AXI_ADDR_C              : slv(31 downto 0) := X"9600_0000";--13
+   constant PLL2REGS_AXI_BASE_ADDR_C        : slv(31 downto 0) := X"9700_0000";--14
 
    -- constant AXI_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXI_MASTERS_C-1 downto 0) := genAxiLiteConfig(NUM_AXI_MASTERS_C, x"0000_0000", 20, 16);
    constant AXI_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXI_MASTERS_C-1 downto 0) := (
@@ -147,20 +172,73 @@ architecture mapping of AppReg is
 --         baseAddr      => x"8000_0000",
 --         addrBits      => 31,
 --         connectivity  => x"FFFF"),
+      PLLREGS_AXI_INDEX_C     => (
+         baseAddr             => PLLREGS_AXI_BASE_ADDR_C,
+         addrBits             => 24,
+         connectivity         => x"FFFF"),
+      TRIG_REG_AXI_INDEX_C => (
+         baseAddr          => TRIG_REG_AXI_BASE_ADDR_C,
+         addrBits          => 24,
+         connectivity      => x"FFFF"),
       SACIREGS_INDEX_C => (
          baseAddr      => SACIREGS_BASE_ADDR_C,
          addrBits      => 24,
-         connectivity  => x"FFFF"));         
+         connectivity  => x"FFFF"),
+      CLK_JIT_CLR_REG_AXI_INDEX_C => (
+         baseAddr                 => CLK_JIT_CLR_REG_AXI_ADDR_C,
+         addrBits                 => 24,
+         connectivity             => x"FFFF"),       
+      APP_REG_AXI_INDEX_C                => (
+         baseAddr             => APP_REG_AXI_ADDR_C,
+         addrBits             => 24,
+         connectivity         => x"FFFF"),    
+      PLL2REGS_AXI_INDEX_C => (
+         baseAddr                 => PLL2REGS_AXI_BASE_ADDR_C,
+         addrBits                 => 24,
+         connectivity             => x"FFFF")      
+       );         
 
-   signal mAxilWriteMaster : AxiLiteWriteMasterType;
-   signal mAxilWriteSlave  : AxiLiteWriteSlaveType;
-   signal mAxilReadMaster  : AxiLiteReadMasterType;
-   signal mAxilReadSlave   : AxiLiteReadSlaveType;
+--   type AppConfigType is record
+--      AppVersion           : slv(31 downto 0);
+--      powerEnable          : slv(3 downto 0);
+--      asicMask             : slv(NUMBER_OF_ASICS_C-1 downto 0);
+--      acqCnt               : slv(31 downto 0);
+--      requestStartupCal    : sl;
+--      startupAck           : sl;
+--      startupFail          : sl;
+--      SR0Delay             : slv(7 downto 0);
+--      SR0Period            : slv(7 downto 0);
+--      epixhrDbgSel1        : slv(4 downto 0);
+--      epixhrDbgSel2        : slv(4 downto 0);
+--   end record;
+--
+--
+--   constant APP_CONFIG_INIT_C : AppConfigType := (
+--      AppVersion           => (others => '0'),
+--      powerEnable          => (others => '0'),
+--      asicMask             => (others => '0'),
+--      acqCnt               => (others => '0'),
+--      requestStartupCal    => '1',
+--      startupAck           => '0',
+--      startupFail          => '0',
+--      SR0Delay             => (others => '0'),
+--      SR0Period            => (others => '0'),
+--      epixhrDbgSel1        => "01101",
+--      epixhrDbgSel2        => "01101"
+--   );
 
-   signal mAxilWriteMasters : AxiLiteWriteMasterArray(NUM_AXI_MASTERS_C-1 downto 0);
-   signal mAxilWriteSlaves  : AxiLiteWriteSlaveArray(NUM_AXI_MASTERS_C-1 downto 0) := (others => AXI_LITE_WRITE_SLAVE_EMPTY_DECERR_C);
-   signal mAxilReadMasters  : AxiLiteReadMasterArray(NUM_AXI_MASTERS_C-1 downto 0);
-   signal mAxilReadSlaves   : AxiLiteReadSlaveArray(NUM_AXI_MASTERS_C-1 downto 0)  := (others => AXI_LITE_READ_SLAVE_EMPTY_DECERR_C);
+   constant HR_FD_NUM_AXI_SLAVE_SLOTS_C   : natural := 1;
+
+   -- AXI-Lite Signals
+   signal sAxiReadMaster  : AxiLiteReadMasterArray(HR_FD_NUM_AXI_SLAVE_SLOTS_C-1 downto 0);
+   signal sAxiReadSlave   : AxiLiteReadSlaveArray(HR_FD_NUM_AXI_SLAVE_SLOTS_C-1 downto 0);
+   signal sAxiWriteMaster : AxiLiteWriteMasterArray(HR_FD_NUM_AXI_SLAVE_SLOTS_C-1 downto 0);
+   signal sAxiWriteSlave  : AxiLiteWriteSlaveArray(HR_FD_NUM_AXI_SLAVE_SLOTS_C-1 downto 0);
+   -- AXI-Lite Signals
+   signal mAxiWriteMasters : AxiLiteWriteMasterArray(NUM_AXI_MASTERS_C-1 downto 0);
+   signal mAxiWriteSlaves  : AxiLiteWriteSlaveArray(NUM_AXI_MASTERS_C-1 downto 0);
+   signal mAxiReadMasters  : AxiLiteReadMasterArray(NUM_AXI_MASTERS_C-1 downto 0);
+   signal mAxiReadSlaves   : AxiLiteReadSlaveArray(NUM_AXI_MASTERS_C-1 downto 0);
 
    signal txMaster : AxiStreamMasterType;
    signal txSlave  : AxiStreamSlaveType;
@@ -173,81 +251,115 @@ architecture mapping of AppReg is
    signal irqReq   : slv(7 downto 0);
    signal irqCount : slv(27 downto 0);
    
-   constant NUMBER_OF_ASICS_C : integer := 2;
-
    signal iSaciClk  : sl;
    signal iSaciCmd  : sl;
    signal iAsicSaciRsp : sl;
 
+   -- clock signals
+   signal appClk         : sl;
+   signal bitClk         : sl;
+   signal byteClk        : sl;
+   signal deserClk       : sl;
+   signal asicRdClk      : sl;
+   signal idelayCtrlClk  : sl;
+   signal appRst         : sl;
+   signal axiRst         : sl;
+   signal bitRst         : sl;
+   signal byteClkRst     : sl;
+   signal asicRdClkRst   : sl;
+   signal idelayCtrlRst  : sl;
+   signal idelayCtrlRst_i: sl;
+   signal clkLocked      : sl;
+
+   -- ASIC signals (placeholders)
+   signal iAsicEnA             : sl;
+   signal iAsicEnB             : sl;
+   signal iAsicVid             : sl;
+   signal iAsicSR0             : sl;
+   signal iAsicSR0Raw          : sl;
+   signal iAsicSR0RefClk       : sl;
+   signal iAsic01DM1           : sl;
+   signal iAsic01DM2           : sl;
+   signal iAsicPPbe            : sl;
+   signal iAsicPpmat           : sl;
+   signal iAsicR0              : sl;
+   signal iAsicSync            : sl;
+   signal iAsicAcq             : sl;
+   signal iAsicGrst            : sl;
+   signal boardConfig          : AppConfigType;
+   signal monitoringSig        : slv(1 downto 0);
+
+   signal adcClk         : sl;
+   signal errInhibit     : sl;
+
+   signal dummy : slv(3 downto 0);
+
+   -- Triggers and associated signals
+   signal iDaqTrigger        : sl := '0';
+   signal iRunTrigger        : sl := '0';
+   signal opCode             : slv(7 downto 0);
+   signal pgpOpCodeOneShot   : sl;
+   signal acqStart           : sl;
+   signal dataSend           : sl;
+   signal saciPrepReadoutReq : sl;
+   signal saciPrepReadoutAck : sl;
+   signal pgpRxOut           : Pgp2bRxOutType;
+
+   signal serialIdIo         : slv(1 downto 0) := "00";
+   signal idelayRdy          : sl;
+   signal serdesReset        : sl;
+
 begin
 
-   ----------------------------
-   -- Microblaze Wrapper Module
-   ----------------------------   
-   U_CPU : entity surf.MicroblazeBasicCoreWrapper
-      generic map (
-         TPD_G => TPD_G)
-      port map (
-         -- Master AXI-Lite Interface: [0x00000000:0x7FFFFFFF]
-         mAxilWriteMaster => mAxilWriteMaster,
-         mAxilWriteSlave  => mAxilWriteSlave,
-         mAxilReadMaster  => mAxilReadMaster,
-         mAxilReadSlave   => mAxilReadSlave,
-         -- Streaming
-         mAxisMaster      => mbTxMaster,
-         mAxisSlave       => mbTxSlave,
-         -- IRQ
-         interrupt        => irqReq,
-         -- Clock and Reset
-         clk              => clk,
-         rst              => rst);
+   ---------------------------------------------
+   -- AXI Lite Async - cross clock domain     --
+   ---------------------------------------------
+   U_AxiLiteAsync : entity surf.AxiLiteAsync
+   generic map(
+      TPD_G            => 1 ns,
+      AXI_ERROR_RESP_G => AXI_RESP_SLVERR_C,
+      COMMON_CLK_G     => false,
+      NUM_ADDR_BITS_G  => 32,
+      PIPE_STAGES_G    => 0)
+   port map(
+      -- Slave Port
+      sAxiClk         => clk,
+      sAxiClkRst      => rst,
+      sAxiReadMaster  => sAxilReadMaster,
+      sAxiReadSlave   => sAxilReadSlave,
+      sAxiWriteMaster => sAxilWriteMaster,
+      sAxiWriteSlave  => sAxilWriteSlave,
+      -- Master Port
+      mAxiClk         => appClk,
+      mAxiClkRst      => appRst,
+      mAxiReadMaster  => sAxiReadMaster(0),
+      mAxiReadSlave   => sAxiReadSlave(0),
+      mAxiWriteMaster => sAxiWriteMaster(0),
+      mAxiWriteSlave  => sAxiWriteSlave(0)
+    );
+   ---------------------------------------------
+   -- AXI Lite Crossbar for register control  --
+   -- Check AppPkg.vhd for addresses          --
+   ---------------------------------------------
+   U_AxiLiteCrossbar : entity surf.AxiLiteCrossbar
+   generic map (
+      NUM_SLAVE_SLOTS_G  => 1,
+      NUM_MASTER_SLOTS_G => NUM_AXI_MASTERS_C,
+      MASTERS_CONFIG_G   => AXI_CONFIG_C
+   )
+   port map (
+      sAxiWriteMasters    => sAxiWriteMaster,
+      sAxiWriteSlaves     => sAxiWriteSlave,
+      sAxiReadMasters     => sAxiReadMaster,
+      sAxiReadSlaves      => sAxiReadSlave,
+      mAxiWriteMasters    => mAxiWriteMasters,
+      mAxiWriteSlaves     => mAxiWriteSlaves,
+      mAxiReadMasters     => mAxiReadMasters,
+      mAxiReadSlaves      => mAxiReadSlaves,
+      axiClk              => appClk,
+      axiClkRst           => appRst
+   );
 
-   process (clk)
-   begin
-      if rising_edge(clk) then
-         irqReq <= (others => '0') after TPD_G;
-         if rst = '1' then
-            irqCount <= (others => '0') after TPD_G;
-         else
-            -- IRQ[0]
-            if irqCount = x"9502f90" then
-               irqReq(0) <= '1'             after TPD_G;
-               irqCount  <= (others => '0') after TPD_G;
-            else
-               irqCount <= irqCount + 1 after TPD_G;
-            end if;
-            -- IRQ[1]
-            if (axiWrValid = '1') and (axiWrAddr = IRQ_ADDR_C) then
-               irqReq(1) <= '1' after TPD_G;
-            end if;
-         end if;
-      end if;
-   end process;
-
-   ---------------------------
-   -- AXI-Lite Crossbar Module
-   ---------------------------         
-   U_XBAR : entity surf.AxiLiteCrossbar
-      generic map (
-         TPD_G              => TPD_G,
-         NUM_SLAVE_SLOTS_G  => 2,
-         NUM_MASTER_SLOTS_G => NUM_AXI_MASTERS_C,
-         MASTERS_CONFIG_G   => AXI_CONFIG_C)
-      port map (
-         sAxiWriteMasters(0) => axilWriteMaster,
-         sAxiWriteMasters(1) => mAxilWriteMaster,
-         sAxiWriteSlaves(0)  => axilWriteSlave,
-         sAxiWriteSlaves(1)  => mAxilWriteSlave,
-         sAxiReadMasters(0)  => axilReadMaster,
-         sAxiReadMasters(1)  => mAxilReadMaster,
-         sAxiReadSlaves(0)   => axilReadSlave,
-         sAxiReadSlaves(1)   => mAxilReadSlave,
-         mAxiWriteMasters    => mAxilWriteMasters,
-         mAxiWriteSlaves     => mAxilWriteSlaves,
-         mAxiReadMasters     => mAxilReadMasters,
-         mAxiReadSlaves      => mAxilReadSlaves,
-         axiClk              => clk,
-         axiClkRst           => rst);
 
    ---------------------------
    -- AXI-Lite: Version Module
@@ -260,12 +372,12 @@ begin
          XIL_DEVICE_G    => XIL_DEVICE_G,
          EN_DEVICE_DNA_G => true)
       port map (
-         axiReadMaster  => mAxilReadMasters(VERSION_INDEX_C),
-         axiReadSlave   => mAxilReadSlaves(VERSION_INDEX_C),
-         axiWriteMaster => mAxilWriteMasters(VERSION_INDEX_C),
-         axiWriteSlave  => mAxilWriteSlaves(VERSION_INDEX_C),
-         axiClk         => clk,
-         axiRst         => rst);
+         axiReadMaster  => mAxiReadMasters(VERSION_INDEX_C),
+         axiReadSlave   => mAxiReadSlaves(VERSION_INDEX_C),
+         axiWriteMaster => mAxiWriteMasters(VERSION_INDEX_C),
+         axiWriteSlave  => mAxiWriteSlaves(VERSION_INDEX_C),
+         axiClk         => appClk,
+         axiRst         => appRst);
 
    GEN_7SERIES : if (XIL_DEVICE_G = "7SERIES") generate
       ------------------------
@@ -275,12 +387,12 @@ begin
          generic map (
             TPD_G => TPD_G)
          port map (
-            axiReadMaster  => mAxilReadMasters(XADC_INDEX_C),
-            axiReadSlave   => mAxilReadSlaves(XADC_INDEX_C),
-            axiWriteMaster => mAxilWriteMasters(XADC_INDEX_C),
-            axiWriteSlave  => mAxilWriteSlaves(XADC_INDEX_C),
-            axiClk         => clk,
-            axiRst         => rst,
+            axiReadMaster  => mAxiReadMasters(XADC_INDEX_C),
+            axiReadSlave   => mAxiReadSlaves(XADC_INDEX_C),
+            axiWriteMaster => mAxiWriteMasters(XADC_INDEX_C),
+            axiWriteSlave  => mAxiWriteSlaves(XADC_INDEX_C),
+            axiClk         => appClk,
+            axiRst         => appRst,
             vPIn           => vPIn,
             vNIn           => vNIn);
 
@@ -294,12 +406,12 @@ begin
          generic map (
             TPD_G => TPD_G)
          port map (
-            axiReadMaster  => mAxilReadMasters(SYS_MON_INDEX_C),
-            axiReadSlave   => mAxilReadSlaves(SYS_MON_INDEX_C),
-            axiWriteMaster => mAxilWriteMasters(SYS_MON_INDEX_C),
-            axiWriteSlave  => mAxilWriteSlaves(SYS_MON_INDEX_C),
-            axiClk         => clk,
-            axiRst         => rst,
+            axiReadMaster  => mAxiReadMasters(SYS_MON_INDEX_C),
+            axiReadSlave   => mAxiReadSlaves(SYS_MON_INDEX_C),
+            axiWriteMaster => mAxiWriteMasters(SYS_MON_INDEX_C),
+            axiWriteSlave  => mAxiWriteSlaves(SYS_MON_INDEX_C),
+            axiClk         => appClk,
+            axiRst         => appRst,
             vPIn           => vPIn,
             vNIn           => vNIn);
    end generate;
@@ -317,18 +429,18 @@ begin
          DATA_WIDTH_G => 32)
       port map (
          -- Clock and Reset
-         clk            => clk,
-         rst            => rst,
+         clk            => appClk,
+         rst            => appRst,
          -- AXI-Lite Write Monitor
          axiWrValid     => axiWrValid,
          axiWrAddr      => axiWrAddr,
          -- AXI-Lite Interface
-         axiClk         => clk,
-         axiRst         => rst,
-         axiReadMaster  => mAxilReadMasters(MEM_INDEX_C),
-         axiReadSlave   => mAxilReadSlaves(MEM_INDEX_C),
-         axiWriteMaster => mAxilWriteMasters(MEM_INDEX_C),
-         axiWriteSlave  => mAxilWriteSlaves(MEM_INDEX_C));
+         axiClk         => appClk,
+         axiRst         => appRst,
+         axiReadMaster  => mAxiReadMasters(MEM_INDEX_C),
+         axiReadSlave   => mAxiReadSlaves(MEM_INDEX_C),
+         axiWriteMaster => mAxiWriteMasters(MEM_INDEX_C),
+         axiWriteSlave  => mAxiWriteSlaves(MEM_INDEX_C));
 
    -------------------
    -- AXI-Lite PRBS RX
@@ -340,20 +452,20 @@ begin
          PRBS_SEED_SIZE_G           => 128,
          MASTER_AXI_STREAM_CONFIG_G => ssiAxiStreamConfig(16))
       port map (
-         mAxisClk        => clk,
-         mAxisRst        => rst,
+         mAxisClk        => appClk,
+         mAxisRst        => appRst,
          mAxisMaster     => txMaster,
          mAxisSlave      => txSlave,
-         locClk          => clk,
-         locRst          => rst,
+         locClk          => appClk,
+         locRst          => appRst,
          trig            => '0',
          packetLength    => X"000000ff",
          tDest           => X"00",
          tId             => X"00",
-         axilReadMaster  => mAxilReadMasters(PRBS_TX_INDEX_C),
-         axilReadSlave   => mAxilReadSlaves(PRBS_TX_INDEX_C),
-         axilWriteMaster => mAxilWriteMasters(PRBS_TX_INDEX_C),
-         axilWriteSlave  => mAxilWriteSlaves(PRBS_TX_INDEX_C));
+         axilReadMaster  => mAxiReadMasters(PRBS_TX_INDEX_C),
+         axilReadSlave   => mAxiReadSlaves(PRBS_TX_INDEX_C),
+         axilWriteMaster => mAxiWriteMasters(PRBS_TX_INDEX_C),
+         axilWriteSlave  => mAxiWriteSlaves(PRBS_TX_INDEX_C));
 
    GEN_BATCHER : if (PRBS_TX_BATCHER_G = true) generate
       U_AxiStreamBatcher : entity surf.AxiStreamBatcher
@@ -367,8 +479,8 @@ begin
             OUTPUT_PIPE_STAGES_G         => 0)
          port map (
             -- Clock and Reset
-            axisClk     => clk,
-            axisRst     => rst,
+            axisClk     => appClk,
+            axisRst     => appRst,
             -- AXIS Interfaces
             sAxisMaster => txMaster,
             sAxisSlave  => txSlave,
@@ -391,16 +503,16 @@ begin
          PRBS_SEED_SIZE_G          => 128,
          SLAVE_AXI_STREAM_CONFIG_G => ssiAxiStreamConfig(16))
       port map (
-         sAxisClk       => clk,
-         sAxisRst       => rst,
+         sAxisClk       => appClk,
+         sAxisRst       => appRst,
          sAxisMaster    => rxMaster,
          sAxisSlave     => rxSlave,
-         axiClk         => clk,
-         axiRst         => rst,
-         axiReadMaster  => mAxilReadMasters(PRBS_RX_INDEX_C),
-         axiReadSlave   => mAxilReadSlaves(PRBS_RX_INDEX_C),
-         axiWriteMaster => mAxilWriteMasters(PRBS_RX_INDEX_C),
-         axiWriteSlave  => mAxilWriteSlaves(PRBS_RX_INDEX_C));
+         axiClk         => appClk,
+         axiRst         => appRst,
+         axiReadMaster  => mAxiReadMasters(PRBS_RX_INDEX_C),
+         axiReadSlave   => mAxiReadSlaves(PRBS_RX_INDEX_C),
+         axiWriteMaster => mAxiWriteMasters(PRBS_RX_INDEX_C),
+         axiWriteSlave  => mAxiWriteSlaves(PRBS_RX_INDEX_C));
 
    rxMaster    <= pbrsRxMaster;
    pbrsRxSlave <= rxSlave;
@@ -417,39 +529,39 @@ begin
          AXIS_CONFIG_G    => ssiAxiStreamConfig(16))
       port map(
          -- AXIS Stream Interface
-         axisClk          => clk,
-         axisRst          => rst,
+         axisClk          => appClk,
+         axisRst          => appRst,
          axisMasters(0)   => txMaster,
          axisMasters(1)   => rxMaster,
          axisSlaves(0)    => txSlave,
          axisSlaves(1)    => rxSlave,
          -- AXI lite slave port for register access
-         axilClk          => clk,
-         axilRst          => rst,
-         sAxilWriteMaster => mAxilWriteMasters(AXIS_MON_INDEX_C),
-         sAxilWriteSlave  => mAxilWriteSlaves(AXIS_MON_INDEX_C),
-         sAxilReadMaster  => mAxilReadMasters(AXIS_MON_INDEX_C),
-         sAxilReadSlave   => mAxilReadSlaves(AXIS_MON_INDEX_C));
+         axilClk          => appClk,
+         axilRst          => appRst,
+         sAxilWriteMaster => mAxiWriteMasters(AXIS_MON_INDEX_C),
+         sAxilWriteSlave  => mAxiWriteSlaves(AXIS_MON_INDEX_C),
+         sAxilReadMaster  => mAxiReadMasters(AXIS_MON_INDEX_C),
+         sAxilReadSlave   => mAxiReadSlaves(AXIS_MON_INDEX_C));
 
    ------------------------------
    -- AXI-Lite HLS Example Module
    ------------------------------            
    U_AxiLiteExample : entity work.AxiLiteExample
       port map (
-         axiClk         => clk,
-         axiRst         => rst,
-         axiReadMaster  => mAxilReadMasters(HLS_INDEX_C),
-         axiReadSlave   => mAxilReadSlaves(HLS_INDEX_C),
-         axiWriteMaster => mAxilWriteMasters(HLS_INDEX_C),
-         axiWriteSlave  => mAxilWriteSlaves(HLS_INDEX_C));
+         axiClk         => appClk,
+         axiRst         => appRst,
+         axiReadMaster  => mAxiReadMasters(HLS_INDEX_C),
+         axiReadSlave   => mAxiReadSlaves(HLS_INDEX_C),
+         axiWriteMaster => mAxiWriteMasters(HLS_INDEX_C),
+         axiWriteSlave  => mAxiWriteSlaves(HLS_INDEX_C));
 
    ------------------------------------
    -- AXI Streaming: HLS Example Module
    ------------------------------------
    U_AxiStreamExample : entity work.AxiStreamExample
       port map (
-         axisClk     => clk,
-         axisRst     => rst,
+         axisClk     => appClk,
+         axisRst     => appRst,
          -- Slave Port
          sAxisMaster => hlsRxMaster,
          sAxisSlave  => hlsRxSlave,
@@ -460,23 +572,119 @@ begin
    -----------------------------------------------
    -- Map the AXI-Lite to Communication Monitoring
    -----------------------------------------------
-   commReadMaster                 <= mAxilReadMasters(COMM_INDEX_C);
-   mAxilReadSlaves(COMM_INDEX_C)  <= commReadSlave;
-   commWriteMaster                <= mAxilWriteMasters(COMM_INDEX_C);
-   mAxilWriteSlaves(COMM_INDEX_C) <= commWriteSlave;
+   commReadMaster                 <= mAxiReadMasters(COMM_INDEX_C);
+   mAxiReadSlaves(COMM_INDEX_C)  <= commReadSlave;
+   commWriteMaster                <= mAxiWriteMasters(COMM_INDEX_C);
+   mAxiWriteSlaves(COMM_INDEX_C) <= commWriteSlave;
 
 --   -------------------------------------------------------------
 --   -- Map the AXI-Lite to Test bus (never respond with an error)
 --   -------------------------------------------------------------
 --   mAxilReadSlaves(TEST_INDEX_C)  <= AXI_LITE_READ_SLAVE_EMPTY_OK_C;
 --   mAxilWriteSlaves(TEST_INDEX_C) <= AXI_LITE_WRITE_SLAVE_EMPTY_OK_C;
-   
+
+
+   ------------------------------------------
+   -- Generate clocks from 156.25 MHz PGP  --
+   ------------------------------------------
+   -- clkIn     : 156.25 MHz PGP
+   -- clkOut(0) : 100.00 MHz app clock
+   -- clkOut(1) : 100.00 MHz asic clock
+   -- clkOut(2) : 100.00 MHz asic clock
+   -- clkOut(3) : 300.00 MHz idelay control clock
+   -- clkOut(4) :  50.00 MHz monitoring adc
+   U_CoreClockGen : entity surf.ClockManagerUltraScale
+   generic map(
+      TPD_G                  => 1 ns,
+      TYPE_G                 => "MMCM",  -- or "PLL"
+      INPUT_BUFG_G           => true,
+      FB_BUFG_G              => true,
+      RST_IN_POLARITY_G      => '1',     -- '0' for active low
+      NUM_CLOCKS_G           => 3,
+      -- MMCM attributes
+      BANDWIDTH_G            => "OPTIMIZED",
+--      CLKIN_PERIOD_G         => 6.4,    -- Input period in ns );
+      CLKIN_PERIOD_G         => 8.0,
+      DIVCLK_DIVIDE_G        => 5,
+      CLKFBOUT_MULT_F_G      => 36.0,
+      CLKFBOUT_MULT_G        => 5,
+      CLKOUT0_DIVIDE_F_G     => 9.0,
+      CLKOUT0_DIVIDE_G       => 9,
+      CLKOUT1_DIVIDE_G       => 9,
+      CLKOUT2_DIVIDE_G       => 3,
+      CLKOUT0_PHASE_G        => 0.0,
+      CLKOUT1_PHASE_G        => 0.0,
+      CLKOUT2_PHASE_G        => 0.0,
+      CLKOUT0_DUTY_CYCLE_G   => 0.5,
+      CLKOUT1_DUTY_CYCLE_G   => 0.5,
+      CLKOUT2_DUTY_CYCLE_G   => 0.5,
+      CLKOUT0_RST_HOLD_G     => 3,
+      CLKOUT1_RST_HOLD_G     => 3,
+      CLKOUT2_RST_HOLD_G     => 3,
+      CLKOUT0_RST_POLARITY_G => '1',
+      CLKOUT1_RST_POLARITY_G => '1',
+      CLKOUT2_RST_POLARITY_G => '1')
+   port map(
+      clkIn           => clk,
+      rstIn           => rst,
+      clkOut(0)       => appClk,
+      clkOut(1)       => idelayCtrlClk,
+      clkOut(2)       => adcClk,
+      rstOut(0)       => appRst,
+      rstOut(1)       => dummy(0),
+      rstOut(2)       => dummy(1),
+      locked          => clkLocked,
+      -- AXI-Lite Interface
+      axilClk         => appClk,
+      axilRst         => appRst,
+      axilReadMaster  => mAxiReadMasters(PLLREGS_AXI_INDEX_C),
+      axilReadSlave   => mAxiReadSlaves(PLLREGS_AXI_INDEX_C),
+      axilWriteMaster => mAxiWriteMasters(PLLREGS_AXI_INDEX_C),
+      axilWriteSlave  => mAxiWriteSlaves(PLLREGS_AXI_INDEX_C)
+   );
+
+
+   ---------------------
+   -- Trig control    --
+   ---------------------
+   U_TrigControl : entity work.TrigControlAxi
+   port map (
+      -- Trigger outputs
+      appClk         => appClk,
+      appRst         => appRst,
+      acqStart       => acqStart,
+      dataSend       => dataSend,
+
+      -- External trigger inputs
+      runTrigger     => iRunTrigger,
+      daqTrigger     => iDaqTrigger,
+
+      -- PGP clocks and reset
+      sysClk         => clk,
+      sysRst         => rst,
+      -- SW trigger in (from VC)
+      ssiCmd         => ssiCmd,
+      -- PGP RxOutType (to trigger from sideband)
+      pgpRxOut       => pgpRxOut,
+      -- Opcode associated with this trigger
+      opCodeOut      => opCode,
+
+      -- AXI lite slave port for register access
+      axilClk           => appClk,
+      axilRst           => appRst,
+      sAxilWriteMaster  => mAxiWriteMasters(TRIG_REG_AXI_INDEX_C),
+      sAxilWriteSlave   => mAxiWriteSlaves(TRIG_REG_AXI_INDEX_C),
+      sAxilReadMaster   => mAxiReadMasters(TRIG_REG_AXI_INDEX_C),
+      sAxilReadSlave    => mAxiReadSlaves(TRIG_REG_AXI_INDEX_C)
+   );
+
+
    
    U_SaciClkObuf : OBUFDS port map (I => iSaciClk, O => asicSaciClk_p, OB => asicSaciClk_n);
    U_SaciCmdObuf : OBUFDS port map (I => iSaciCmd, O => asicSaciCmd_p, OB => asicSaciCmd_n);
    U_SaciRspIbuf : IBUFDS port map (I => asicSaciRsp_p, IB => asicSaciRsp_n, O => iAsicSaciRsp);
    
-    --------------------------------------------
+   --------------------------------------------
    -- SACI interface controller              --
    -------------------------------------------- 
    U_AxiLiteSaciMaster : entity surf.AxiLiteSaciMaster
@@ -494,18 +702,203 @@ begin
       saciSelL          => asicSaciSel,
       saciRsp(0)        => iAsicSaciRsp,
       -- AXI-Lite Register Interface
-      axilClk           => clk,
-      axilRst           => rst,
-      axilReadMaster    => mAxilReadMasters(SACIREGS_INDEX_C),
-      axilReadSlave     => mAxilReadSlaves(SACIREGS_INDEX_C),
-      axilWriteMaster   => mAxilWriteMasters(SACIREGS_INDEX_C),
-      axilWriteSlave    => mAxilWriteSlaves(SACIREGS_INDEX_C)
+      axilClk           => appClk,
+      axilRst           => appRst,
+      axilReadMaster    => mAxiReadMasters(SACIREGS_INDEX_C),
+      axilReadSlave     => mAxiReadSlaves(SACIREGS_INDEX_C),
+      axilWriteMaster   => mAxiWriteMasters(SACIREGS_INDEX_C),
+      axilWriteSlave    => mAxiWriteSlaves(SACIREGS_INDEX_C)
    );
 
-   -- Unused
-   asicGlblRst   <= not(rst); --: out sl;
-   asicPulse     <= '0';      --: out sl;
-   U_AsicSmpClk: OBUFDS port map (I => '0', O => asicSmpClk_p, OB => asicSmpClk_n);
-   U_AsicR0    : OBUFDS port map (I => '0', O => asicR0_p, OB => asicR0_n);
+
+   ----------------------------------------
+   -- SI5345 Jitter Cleaner              --
+   ---------------------------------------- 
+   U_PLL : entity surf.Si5345
+   generic map(
+      TPD_G              => TPD_G,
+      MEMORY_INIT_FILE_G => "Si5345-RevD-Regmap-56MHz.mem",  -- Used to initialization boot ROM
+      CLK_PERIOD_G       => (1.0/100.0E+6),
+      SPI_SCLK_PERIOD_G  => (1.0/1.0E+6))
+   port map(
+      -- Clock and Reset
+      axiClk         => appClk,
+      axiRst         => appRst,
+      -- AXI-Lite Interface
+      axiReadMaster  =>  mAxiReadMasters(CLK_JIT_CLR_REG_AXI_INDEX_C),
+      axiReadSlave   => mAxiReadSlaves(CLK_JIT_CLR_REG_AXI_INDEX_C),
+      axiWriteMaster => mAxiWriteMasters(CLK_JIT_CLR_REG_AXI_INDEX_C),
+      axiWriteSlave  => mAxiWriteSlaves(CLK_JIT_CLR_REG_AXI_INDEX_C),
+      -- SPI Interface
+      coreSclk       => pllSck,
+      coreSDin       => pllSdo,
+      coreSDout      => pllSdi,
+      coreCsb        => pllCsL
+   );
+
+  ----------------------------------------
+  -- Register Control from cryo project --
+  ----------------------------------------
+  asicGlblRst <= iAsicGrst;
+  --asicGlblRst   <= not(rst); --: out sl;
+  asicPulse   <= iAsicAcq;   --: out sl;
+  U_AsicR0    : OBUFDS port map (I => iAsicSR0Raw, O => asicR0_p, OB => asicR0_n);
+  U_AsicSmpClk: OBUFDS port map (I => iAsicPpmat, O => asicSmpClk_p, OB => asicSmpClk_n);
+  --
+  U_RegControl : entity work.RegisterControl
+   generic map (
+      TPD_G            => TPD_G,
+      EN_DEVICE_DNA_G  => false,        -- this is causing placement errors,
+                                        -- needs fixing.
+      BUILD_INFO_G     => BUILD_INFO_G
+   )
+   port map (
+      axiClk         => appClk,
+      axiRst         => axiRst,
+      sysRst         => appRst,
+      -- AXI-Lite Register Interface (axiClk domain)
+      axiReadMaster  => mAxiReadMasters(APP_REG_AXI_INDEX_C),
+      axiReadSlave   => mAxiReadSlaves(APP_REG_AXI_INDEX_C),
+      axiWriteMaster => mAxiWriteMasters(APP_REG_AXI_INDEX_C),
+      axiWriteSlave  => mAxiWriteSlaves(APP_REG_AXI_INDEX_C),
+      -- Register Inputs/Outputs (axiClk domain)
+      boardConfig    => boardConfig,
+      -- 1-wire board ID interfaces
+      serialIdIo     => serialIdIo,
+      -- fast ADC clock
+      adcClk         => open,
+      -- ASICs acquisition signals
+      acqStart       => acqStart,
+      saciReadoutReq => saciPrepReadoutReq,
+      saciReadoutAck => saciPrepReadoutAck,
+      asicPPbe       => iAsicPpbe,
+      asicPpmat      => iAsicPpmat,
+      asicTpulse     => open,
+      asicStart      => open,
+      asicSR0        => iAsicSR0Raw,
+      asicGlblRst    => iAsicGrst,
+      asicSync       => iAsicSync,
+      asicAcq        => iAsicAcq,
+      asicVid        => open,
+      errInhibit     => errInhibit
+   );
+
+   -----------------------
+	 -- Clock Generator 2 --
+   -----------------------
+   -- clkIn     : 156.25 MHz PGP
+   -- clkOut(0) : 448.00 MHz -- 8x cryo clock (default  56MHz)
+   -- clkOut(1) : 112.00 MHz -- 448 clock div 4
+   -- clkOut(2) : 64.00 MHz  -- 448 clock div 7
+   -- clkOut(3) : 56.00 MHz  -- cryo input clock default is 56MHz
+   U_iserdesClockGen : entity surf.ClockManagerUltraScale
+   generic map(
+      TPD_G                  => 1 ns,
+      TYPE_G                 => "MMCM",  -- or "PLL"
+      INPUT_BUFG_G           => true,
+      FB_BUFG_G              => true,
+      RST_IN_POLARITY_G      => '1',     -- '0' for active low
+      NUM_CLOCKS_G           => 4,
+      -- MMCM attributes
+      BANDWIDTH_G            => "OPTIMIZED",
+      --CLKIN_PERIOD_G         => 6.4,    -- Input period in ns );
+      CLKIN_PERIOD_G         => 8.0,      -- Input period in ns );
+      DIVCLK_DIVIDE_G        => 1,
+      CLKFBOUT_MULT_F_G      => 10.75,
+      CLKFBOUT_MULT_G        => 5,
+      CLKOUT0_DIVIDE_F_G     => 3.0,
+      CLKOUT0_DIVIDE_G       => 1,
+      CLKOUT0_PHASE_G        => 0.0,
+      CLKOUT0_DUTY_CYCLE_G   => 0.5,
+      CLKOUT0_RST_HOLD_G     => 3,
+      CLKOUT0_RST_POLARITY_G => '1',
+      CLKOUT1_DIVIDE_G       => 12,
+      CLKOUT1_PHASE_G        => 0.0,
+      CLKOUT1_DUTY_CYCLE_G   => 0.5,
+      CLKOUT1_RST_HOLD_G     => 3,
+      CLKOUT1_RST_POLARITY_G => '1',
+      CLKOUT2_DIVIDE_G       => 21,
+      CLKOUT2_PHASE_G        => 0.0,
+      CLKOUT2_DUTY_CYCLE_G   => 0.5,
+      CLKOUT2_RST_HOLD_G     => 3,
+      CLKOUT2_RST_POLARITY_G => '1',
+      CLKOUT3_DIVIDE_G       => 24,
+      CLKOUT3_PHASE_G        => 0.0,
+      CLKOUT3_DUTY_CYCLE_G   => 0.5,
+      CLKOUT3_RST_HOLD_G     => 3,
+      CLKOUT3_RST_POLARITY_G => '1')
+   port map(
+      clkIn           => clk,
+      rstIn           => rst,
+      clkOut(0)       => bitClk,       --bit clk
+      clkOut(1)       => deserClk,
+      clkOut(2)       => byteClk,
+      clkOut(3)       => asicRdClk,
+      rstOut(0)       => bitRst,
+      rstOut(1)       => dummy(2),
+      rstOut(2)       => dummy(3),
+      rstOut(3)       => asicRdClkRst,
+      locked          => open,
+      -- AXI-Lite Interface
+      axilClk         => appClk,
+      axilRst         => appRst,
+      axilReadMaster  => mAxiReadMasters(PLL2REGS_AXI_INDEX_C),
+      axilReadSlave   => mAxiReadSlaves(PLL2REGS_AXI_INDEX_C),
+      axilWriteMaster => mAxiWriteMasters(PLL2REGS_AXI_INDEX_C),
+      axilWriteSlave  => mAxiWriteSlaves(PLL2REGS_AXI_INDEX_C)
+      );
+
+	 -----------------------------
+   U_RdPwrUpRst : entity surf.PwrUpRst
+   generic map (
+     SIM_SPEEDUP_G  => SIMULATION_G,
+     DURATION_G     => 200000000
+   )
+   port map (
+      clk      => byteClk,
+      rstOut   => byteClkRst
+   );
+
+   idelayCtrlRst_i <= idelayCtrlRst;    --cmt_locked or
+   U_IDELAYCTRL_0 : IDELAYCTRL
+   generic map (
+      SIM_DEVICE => "ULTRASCALE"  -- Must be set to "ULTRASCALE"
+   )
+   port map (
+      RDY => idelayRdy,        -- 1-bit output: Ready output
+      REFCLK => idelayCtrlClk, -- 1-bit input: Reference clock input
+      RST => idelayCtrlRst_i   -- 1-bit input: Active high reset input. Asynchronous assert, synchronous deassert to
+                               -- REFCLK.
+   );
+
+   U_IdelayCtrlReset : entity surf.RstSync
+   generic map (
+      TPD_G           => TPD_G,
+      RELEASE_DELAY_G => 250
+   )
+   port map (
+      clk      => idelayCtrlClk,
+      asyncRst => serdesReset,
+      syncRst  => idelayCtrlRst
+   );
+
+  U_SR0Synch : entity work.SR0Synchronizer
+    generic map (
+      TPD_G => TPD_G
+      )
+    port map(
+      -- Master system clock
+      sysClk       => bitClk,
+      sysClkRst    => bitRst,
+      -- DAC Data
+      delay        => boardConfig.SR0Delay,
+      period       => boardConfig.SR0Period,
+      SR0          => iAsicSR0Raw,
+      -- DAC Control Signals
+      refClk       => iAsicSR0RefClk,
+      SR0Out       => iAsicSR0
+   );
+   -----------------------------
+
 
 end mapping;

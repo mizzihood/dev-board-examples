@@ -54,3 +54,32 @@ set_property ODT RTT_48 [get_ports "sysClk300P"]
 create_generated_clock -name dnaClk        [get_pins {U_App/U_Reg/U_AxiVersion/GEN_DEVICE_DNA.DeviceDna_1/GEN_ULTRA_SCALE.DeviceDnaUltraScale_Inst/BUFGCE_DIV_Inst/O}]
 
 set_clock_groups -asynchronous -group [get_clocks {ethClk125MHz}] -group [get_clocks {dnaClk}]
+
+
+# Adding pins for CRYO
+#################
+# FEMB-specific constraints
+set_property -dict { PACKAGE_PIN  V27 IOSTANDARD LVCMOS18 } [get_ports { asicGlblRst }]
+set_property -dict { PACKAGE_PIN  V28 IOSTANDARD LVCMOS18 } [get_ports { pulse }]
+set_property -dict { PACKAGE_PIN  V29 IOSTANDARD LVDS } [get_ports { asicSaciClk_p }]
+set_property -dict { PACKAGE_PIN  W29 IOSTANDARD LVDS } [get_ports { asicSaciClk_n }]
+set_property -dict { PACKAGE_PIN  V22 IOSTANDARD LVDS } [get_ports { asicSaciCmd_p }]
+set_property -dict { PACKAGE_PIN  V23 IOSTANDARD LVDS } [get_ports { asicSaciCmd_n }]
+set_property -dict { PACKAGE_PIN  U24 IOSTANDARD LVDS } [get_ports { asicSaciRsp_p }]
+set_property -dict { PACKAGE_PIN  U25 IOSTANDARD LVDS } [get_ports { asicSaciRsp_n }]
+set_property -dict { PACKAGE_PIN  AB25 IOSTANDARD LVDS } [get_ports { asicSmpClk_p }]
+set_property -dict { PACKAGE_PIN  AB26 IOSTANDARD LVDS } [get_ports { asicSmpClk_n }]
+#set_property -dict { PACKAGE_PIN  ?? IOSTANDARD LVCMOS18 } [get_ports { clk_p_R }]
+#set_property -dict { PACKAGE_PIN  ?? IOSTANDARD LVCMOS18 } [get_ports { clk_n_R }]
+set_property -dict { PACKAGE_PIN  V21 IOSTANDARD LVDS } [get_ports { asicD0out_p[0] }]
+set_property -dict { PACKAGE_PIN  W21 IOSTANDARD LVDS } [get_ports { asicD0out_n[0] }]
+set_property -dict { PACKAGE_PIN  AC22 IOSTANDARD LVDS } [get_ports { asicD1out_p[0] }]
+set_property -dict { PACKAGE_PIN  AC23 IOSTANDARD LVDS } [get_ports { asicD1out_n[0] }]
+set_property -dict { PACKAGE_PIN  V26 IOSTANDARD LVDS } [get_ports { asicR0_p }]
+set_property -dict { PACKAGE_PIN  W26 IOSTANDARD LVDS } [get_ports { asicR0_n }]
+set_property -dict { PACKAGE_PIN  T22 IOSTANDARD LVCMOS18 } [get_ports { asicSaciSel[0]}]
+set_property -dict { PACKAGE_PIN  T23 IOSTANDARD LVCMOS18 } [get_ports { asicSaciSel[1]}]
+set_property -dict { PACKAGE_PIN  AA20 IOSTANDARD LVDS } [get_ports { asicD0out_p[1] }]
+set_property -dict { PACKAGE_PIN  AB20 IOSTANDARD LVDS } [get_ports { asicD0out_n[1] }]
+set_property -dict { PACKAGE_PIN  U21 IOSTANDARD LVDS } [get_ports { asicD1out_p[1] }]
+set_property -dict { PACKAGE_PIN  U22 IOSTANDARD LVDS } [get_ports { asicD1out_n[1] }]

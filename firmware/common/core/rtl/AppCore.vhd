@@ -62,6 +62,11 @@ entity AppCore is
       asicD0out_n   : in  slv(1 downto 0);
       asicD1out_p   : in  slv(1 downto 0);
       asicD1out_n   : in  slv(1 downto 0);
+      -- Add jitter cleaner pins
+      pllSck        : out sl;
+      pllSdo        : in  sl;
+      pllSdi        : out sl;
+      pllCsL        : out sl;
       -- ADC Ports
       vPIn      : in  sl;
       vNIn      : in  sl);
@@ -202,10 +207,10 @@ begin
          clk             => clk,
          rst             => rst,
          -- SRPv3 AXI-Lite interface
-         axilWriteMaster => axilWriteMaster,
-         axilWriteSlave  => axilWriteSlave,
-         axilReadMaster  => axilReadMaster,
-         axilReadSlave   => axilReadSlave,
+         sAxilWriteMaster => axilWriteMaster,
+         sAxilWriteSlave  => axilWriteSlave,
+         sAxilReadMaster  => axilReadMaster,
+         sAxilReadSlave   => axilReadSlave,
          -- Communication AXI-Lite Interface
          commWriteMaster => commWriteMaster,
          commWriteSlave  => commWriteSlave,
@@ -242,6 +247,11 @@ begin
          asicD0out_n   => asicD0out_n, --: in  slv(1 downto 0);
          asicD1out_p   => asicD1out_p, --: in  slv(1 downto 0);
          asicD1out_n   => asicD1out_n, --: in  slv(1 downto 0);         
+         -- Add jitter cleaner pins
+         pllSck        => pllSck, -- : out sl;
+         pllSdo        => pllSdo, -- : in  sl;
+         pllSdi        => pllSdi, -- : out sl;
+         pllCsL        => pllCsL, -- : out sl;
          -- ADC Ports
          vPIn            => vPIn,
          vNIn            => vNIn);

@@ -1,5 +1,5 @@
 # Setup environment
-source /afs/slac.stanford.edu/g/reseng/rogue/anaconda/rogue_pre-release.sh
+#source /afs/slac.stanford.edu/g/reseng/rogue/anaconda/rogue_pre-release.sh
 
 # Python Package directories
 export FEB_DIR=${PWD}/../firmware/common/python
