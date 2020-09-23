@@ -19,5 +19,12 @@ export USE_RJ45_ETH = 0
 # which requires me to define the TOP_DIR path
 export TOP_DIR = $(abspath $(PWD)/../../..)
 
+# Required for some imports of ePix CRYO stuff? 
+export COMM_TYPE = pgp2b
+export COMMON_NAME = cryo
+export BUILD_MIG_CORE = 0
+export BUILD_MB_CORE = 0
+export PROM_FSBL = 0
+
 # Use top level makefile
 include $(TOP_DIR)/submodules/ruckus/system_vivado.mk

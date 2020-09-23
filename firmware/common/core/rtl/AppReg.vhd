@@ -28,6 +28,11 @@ use surf.Pgp2bPkg.all;
 
 use work.AppPkg.all;
 
+library epix_hr_core;
+use epix_hr_core.EpixHrCorePkg.all;
+
+use work.HrAdcPkg.all;
+
 library unisim;
 use unisim.vcomponents.all;
 
@@ -90,6 +95,7 @@ entity AppReg is
       pllSdo        : in  sl;
       pllSdi        : out sl;
       pllCsL        : out sl;
+      pllInClk      : out sl;
       -- SSI commands 
       ssiCmd        : in  SsiCmdMasterType := SSI_CMD_MASTER_INIT_C;
       -- ADC Ports
@@ -102,9 +108,9 @@ architecture mapping of AppReg is
    constant SHARED_MEM_WIDTH_C : positive                           := 13;
    constant IRQ_ADDR_C         : slv(SHARED_MEM_WIDTH_C-1 downto 0) := (others => '1');
 
-   constant NUM_AXI_MASTERS_C : natural := 15;
+   constant NUM_AXI_MASTERS_C : natural := 19;
 
---   constant NUMBER_OF_ASICS_C : natural := 2;
+--   constant NUMBER_OF_ASICS_C : natural := 2; -- Moved to AppPkg.vhd
 
    constant VERSION_INDEX_C  : natural := 0;
    constant XADC_INDEX_C     : natural := 1;
@@ -116,12 +122,16 @@ architecture mapping of AppReg is
    constant COMM_INDEX_C     : natural := 7;
    constant AXIS_MON_INDEX_C : natural := 8;
 --   constant TEST_INDEX_C     : natural := 9;
-   constant PLLREGS_AXI_INDEX_C         : natural := 9;
-   constant TRIG_REG_AXI_INDEX_C        : natural := 10;
-   constant SACIREGS_INDEX_C            : natural := 11;
-   constant CLK_JIT_CLR_REG_AXI_INDEX_C : natural := 12;
-   constant APP_REG_AXI_INDEX_C         : natural := 13;
-   constant PLL2REGS_AXI_INDEX_C        : natural := 14;
+   constant PLLREGS_AXI_INDEX_C           : natural := 9;
+   constant TRIG_REG_AXI_INDEX_C          : natural := 10;
+   constant SACIREGS_INDEX_C              : natural := 11;
+   constant CLK_JIT_CLR_REG_AXI_INDEX_C   : natural := 12;
+   constant APP_REG_AXI_INDEX_C           : natural := 13;
+   constant PLL2REGS_AXI_INDEX_C          : natural := 14;
+   constant CRYO_ASIC0_READOUT_AXI_INDEX_C : natural := 15;
+   constant DIG_ASIC0_STREAM_AXI_INDEX_C  : natural := 16;
+   constant CRYO_ASIC1_READOUT_AXI_INDEX_C : natural := 17;
+   constant DIG_ASIC1_STREAM_AXI_INDEX_C  : natural := 18;
 
    constant PLLREGS_AXI_BASE_ADDR_C         : slv(31 downto 0) := X"8000_0000";--9
    constant TRIG_REG_AXI_BASE_ADDR_C        : slv(31 downto 0) := X"8100_0000";--10
@@ -129,6 +139,10 @@ architecture mapping of AppReg is
    constant CLK_JIT_CLR_REG_AXI_ADDR_C      : slv(31 downto 0) := X"9300_0000";--12
    constant APP_REG_AXI_ADDR_C              : slv(31 downto 0) := X"9600_0000";--13
    constant PLL2REGS_AXI_BASE_ADDR_C        : slv(31 downto 0) := X"9700_0000";--14
+   constant CRYO_ASIC0_READOUT_AXI_ADDR_C   : slv(31 downto 0) := X"9400_0000";--15
+   constant DIG_ASIC0_STREAM_AXI_ADDR_C    : slv(31 downto 0) := X"9500_0000";--16
+   constant CRYO_ASIC1_READOUT_AXI_ADDR_C   : slv(31 downto 0) := X"9800_0000";--17
+   constant DIG_ASIC1_STREAM_AXI_ADDR_C    : slv(31 downto 0) := X"9900_0000";--18
 
    -- constant AXI_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXI_MASTERS_C-1 downto 0) := genAxiLiteConfig(NUM_AXI_MASTERS_C, x"0000_0000", 20, 16);
    constant AXI_CONFIG_C : AxiLiteCrossbarMasterConfigArray(NUM_AXI_MASTERS_C-1 downto 0) := (
@@ -195,7 +209,23 @@ architecture mapping of AppReg is
       PLL2REGS_AXI_INDEX_C => (
          baseAddr                 => PLL2REGS_AXI_BASE_ADDR_C,
          addrBits                 => 24,
-         connectivity             => x"FFFF")      
+         connectivity             => x"FFFF"),
+      CRYO_ASIC0_READOUT_AXI_INDEX_C => (
+         baseAddr                 => CRYO_ASIC0_READOUT_AXI_ADDR_C,
+         addrBits                 => 24,
+         connectivity             => x"FFFF"),
+      DIG_ASIC0_STREAM_AXI_INDEX_C => (
+         baseAddr                 => DIG_ASIC0_STREAM_AXI_ADDR_C,
+         addrBits                 => 24,
+         connectivity             => x"FFFF"),
+      CRYO_ASIC1_READOUT_AXI_INDEX_C => (
+         baseAddr                 => CRYO_ASIC1_READOUT_AXI_ADDR_C,
+         addrBits                 => 24,
+         connectivity             => x"FFFF"),
+      DIG_ASIC1_STREAM_AXI_INDEX_C => (
+         baseAddr                 => DIG_ASIC1_STREAM_AXI_ADDR_C,
+         addrBits                 => 24,
+         connectivity             => x"FFFF")
        );         
 
 --   type AppConfigType is record
@@ -308,6 +338,15 @@ architecture mapping of AppReg is
    signal serialIdIo         : slv(1 downto 0) := "00";
    signal idelayRdy          : sl;
    signal serdesReset        : sl;
+
+   -- 
+   signal adcSerial   : HrAdcSerialGroupArray(NUMBER_OF_ASICS_C-1 downto 0);
+   signal asicStreams : AxiStreamMasterArray(STREAMS_PER_ASIC_C-1 downto 0) := (others=>AXI_STREAM_MASTER_INIT_C);
+--   signal adcStreamsEn_n : slv(STREAMS_PER_ASIC_C-1 downto 0) := (others => '0');
+   signal adcStreamsEn_n : Slv2Array(NUMBER_OF_ASICS_C-1 downto 0) := (others => (others => '0'));
+
+   signal mAxisMastersASIC : AxiStreamMasterArray(3 downto 0);
+   signal mAxisSlavesASIC  : AxiStreamSlaveArray(3 downto 0);
 
 begin
 
@@ -714,6 +753,8 @@ begin
    ----------------------------------------
    -- SI5345 Jitter Cleaner              --
    ---------------------------------------- 
+   pllInClk <= asicRdClk;
+   --
    U_PLL : entity surf.Si5345
    generic map(
       TPD_G              => TPD_G,
@@ -847,6 +888,95 @@ begin
       axilWriteMaster => mAxiWriteMasters(PLL2REGS_AXI_INDEX_C),
       axilWriteSlave  => mAxiWriteSlaves(PLL2REGS_AXI_INDEX_C)
       );
+
+   -----------------------
+   -- ASICS Loop        --
+   -----------------------
+   adcSerial(0).chP(0) <= asicD0out_p(0);
+   adcSerial(0).chN(0) <= asicD0out_n(0);
+   adcSerial(0).chP(1) <= asicD1out_p(0);
+   adcSerial(0).chN(1) <= asicD1out_n(0);
+   adcSerial(1).chP(0) <= asicD0out_p(1);
+   adcSerial(1).chN(0) <= asicD0out_n(1);
+   adcSerial(1).chP(1) <= asicD1out_p(1);
+   adcSerial(1).chN(1) <= asicD1out_n(1);
+   --
+   G_ASICS : for i in 0 to NUMBER_OF_ASICS_C-1 generate
+     -------------------------------------------------------
+     -- ASIC AXI stream framers
+     -------------------------------------------------------
+     U_AXI_ASIC : entity work.HrAdcReadoutGroup
+      generic map (
+        TPD_G             => TPD_G,
+        NUM_CHANNELS_G    => STREAMS_PER_ASIC_C,
+        SIMULATION_G      => SIMULATION_G,
+        IODELAY_GROUP_G   => "DEFAULT_GROUP",
+        XIL_DEVICE_G      => "ULTRASCALE",
+        DEFAULT_DELAY_G   => (others => '0'),
+        ADC_INVERT_CH_G   => "00000000")
+      port map (
+        -- Master system clock, 125Mhz
+        axilClk         => appClk,
+        axilRst         => appRst,
+        axilWriteMaster => mAxiWriteMasters(CRYO_ASIC0_READOUT_AXI_INDEX_C+i*2),
+        axilWriteSlave  => mAxiWriteSlaves(CRYO_ASIC0_READOUT_AXI_INDEX_C+i*2),
+        axilReadMaster  => mAxiReadMasters(CRYO_ASIC0_READOUT_AXI_INDEX_C+i*2),
+        axilReadSlave   => mAxiReadSlaves(CRYO_ASIC0_READOUT_AXI_INDEX_C+i*2),
+        bitClk          => bitClk,
+        byteClk         => byteClk,
+        deserClk        => deserClk,
+        adcClkRst       => rst,
+        adcSerial       => adcSerial(i),
+        adcStreamClk    => byteClk,--fClkP,--sysClk,
+        adcStreams      => asicStreams,
+        adcStreamsEn_n  => adcStreamsEn_n(i),
+        --monitoringSig   => monitoringSig
+        monitoringSig   => open
+        );
+
+     -------------------------------------------------------------------------------
+     -- generate stream frames
+     -------------------------------------------------------------------------------
+     U_Framers : entity work.DigitalAsicStreamAxi
+       generic map(
+         TPD_G               => TPD_G,
+         VC_NO_G             => "0000",
+         LANE_NO_G           => toSlv(i, 4),
+         ASIC_NO_G           => toSlv(i, 3),
+         STREAMS_PER_ASIC_G  => STREAMS_PER_ASIC_C,
+         ASIC_DATA_G         => (64*16),
+         ASIC_WIDTH_G        => 64,
+         AXIL_ERR_RESP_G     => AXI_RESP_DECERR_C
+         )
+       port map(
+         -- Deserialized data port
+         rxClk             => byteClk, --asicRdClk, --fClkP,    --use frame clock
+         rxRst             => byteClkRst,--asicRdClkRst,
+         adcStreams        => asicStreams(STREAMS_PER_ASIC_C-1 downto 0),
+         adcStreamsEn_n    => adcStreamsEn_n(i),
+
+         -- AXI lite slave port for register access
+         axilClk           => appClk,
+         axilRst           => appRst,
+         sAxilWriteMaster  => mAxiWriteMasters(DIG_ASIC0_STREAM_AXI_INDEX_C+i*2),
+         sAxilWriteSlave   => mAxiWriteSlaves(DIG_ASIC0_STREAM_AXI_INDEX_C+i*2),
+         sAxilReadMaster   => mAxiReadMasters(DIG_ASIC0_STREAM_AXI_INDEX_C+i*2),
+         sAxilReadSlave    => mAxiReadSlaves(DIG_ASIC0_STREAM_AXI_INDEX_C+i*2),
+
+         -- AXI data stream output
+         axisClk           => clk,
+         axisRst           => rst,
+         mAxisMaster       => mAxisMastersASIC(i),
+         mAxisSlave        => mAxisSlavesASIC(i),
+
+         -- acquisition number input to the header
+         acqNo             => boardConfig.acqCnt,
+
+         -- optional readout trigger for test mode
+         testTrig          => acqStart,
+         errInhibit        => errInhibit
+         );
+   end generate;
 
 	 -----------------------------
    U_RdPwrUpRst : entity surf.PwrUpRst

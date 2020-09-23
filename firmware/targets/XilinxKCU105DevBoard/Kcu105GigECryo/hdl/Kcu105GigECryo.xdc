@@ -123,7 +123,9 @@ set_property -dict { PACKAGE_PIN  U21 IOSTANDARD LVDS } [get_ports { asicD1out_p
 set_property -dict { PACKAGE_PIN  U22 IOSTANDARD LVDS } [get_ports { asicD1out_n[1] }]
 
 # Jitter cleaner pins
-set_property -dict { PACKAGE_PIN W28 IOSTANDARD LVCMOS18 } [get_ports { pllSck }]
+set_property -dict { PACKAGE_PIN W28  IOSTANDARD LVCMOS18 } [get_ports { pllSck }]
 set_property -dict { PACKAGE_PIN U27  IOSTANDARD LVCMOS18 } [get_ports { pllSdo }]
 set_property -dict { PACKAGE_PIN Y28  IOSTANDARD LVCMOS18 } [get_ports { pllSdi }]
 set_property -dict { PACKAGE_PIN U26  IOSTANDARD LVCMOS18 } [get_ports { pllCsL }]
+set_property -dict { PACKAGE_PIN AA22 IOSTANDARD LVDS } [get_ports { pllInClk_p }]
+set_property -dict { PACKAGE_PIN AB22 IOSTANDARD LVDS } [get_ports { pllInClk_n }]

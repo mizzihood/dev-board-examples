@@ -78,6 +78,8 @@ entity Kcu105GigECryo is
       pllSdo        : in  sl;
       pllSdi        : out sl;
       pllCsL        : out sl;
+      pllInClk_p    : out sl;
+      pllInClk_n    : out sl;
       -- 300Mhz System Clock
       sysClk300P : in    sl;
       sysClk300N : in    sl);
@@ -105,6 +107,8 @@ architecture top_level of Kcu105GigECryo is
    signal speed100  : sl := '0';
    signal speed10   : sl := '0';
    signal linkUp    : sl := '0';
+
+   signal pllInClk  : sl;
 
    attribute dont_touch              : string;
    attribute dont_touch of txMasters : signal is "TRUE";
@@ -263,13 +267,16 @@ begin
          asicD1out_p   => asicD1out_p, --: in  slv(1 downto 0);
          asicD1out_n   => asicD1out_n, --: in  slv(1 downto 0);
          -- Jitter cleaner pins
-         pllSck        => pllSck, -- : out sl;
-         pllSdo        => pllSdo, -- : in  sl;
-         pllSdi        => pllSdi, -- : out sl;
-         pllCsL        => pllCsL, -- : out sl;
+         pllSck        => pllSck,   -- : out sl;
+         pllSdo        => pllSdo,   -- : in  sl;
+         pllSdi        => pllSdi,   -- : out sl;
+         pllCsL        => pllCsL,   -- : out sl;
+         pllInClk      => pllInClk, -- : out sl;
          -- ADC Ports
          vPIn      => vPIn,
          vNIn      => vNIn);
+   --
+   U_PllClkObuf : OBUFDS port map (I => pllInClk, O => pllInClk_p, OB => pllInClk_n);
 
    ----------------
    -- Misc. Signals

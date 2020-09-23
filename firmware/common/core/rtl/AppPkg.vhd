@@ -27,6 +27,7 @@ package AppPkg is
 
 
    constant NUMBER_OF_ASICS_C : natural := 2;   
+   constant STREAMS_PER_ASIC_C : natural := 2; 
 --   constant NUMBER_OF_LANES_C : natural := 4;   
    
 --   constant HR_FD_NUM_AXI_MASTER_SLOTS_C  : natural := 24;

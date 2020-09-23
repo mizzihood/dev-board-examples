@@ -3,7 +3,7 @@ source -quiet $::env(RUCKUS_DIR)/vivado_proc.tcl
 
 # Load Source Code
 loadSource -dir  "$::DIR_PATH/rtl/"
-
+loadSource -dir  "$::DIR_PATH/../ePixHrCommon/rtl"
 
 # Set the board part
 if { $::env(PRJ_PART) eq {XC7A200TFBG676-2} } {

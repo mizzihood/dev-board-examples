@@ -67,6 +67,7 @@ entity AppCore is
       pllSdo        : in  sl;
       pllSdi        : out sl;
       pllCsL        : out sl;
+      pllInClk      : out sl;
       -- ADC Ports
       vPIn      : in  sl;
       vNIn      : in  sl);
@@ -248,10 +249,11 @@ begin
          asicD1out_p   => asicD1out_p, --: in  slv(1 downto 0);
          asicD1out_n   => asicD1out_n, --: in  slv(1 downto 0);         
          -- Add jitter cleaner pins
-         pllSck        => pllSck, -- : out sl;
-         pllSdo        => pllSdo, -- : in  sl;
-         pllSdi        => pllSdi, -- : out sl;
-         pllCsL        => pllCsL, -- : out sl;
+         pllSck        => pllSck,   -- : out sl;
+         pllSdo        => pllSdo,   -- : in  sl;
+         pllSdi        => pllSdi,   -- : out sl;
+         pllCsL        => pllCsL,   -- : out sl;
+         pllInClk      => pllInClk, -- : out sl;
          -- ADC Ports
          vPIn            => vPIn,
          vNIn            => vNIn);
