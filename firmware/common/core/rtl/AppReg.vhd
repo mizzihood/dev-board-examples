@@ -341,7 +341,7 @@ architecture mapping of AppReg is
 
    -- 
    signal adcSerial   : HrAdcSerialGroupArray(NUMBER_OF_ASICS_C-1 downto 0);
-   signal asicStreams : AxiStreamMasterArray(STREAMS_PER_ASIC_C-1 downto 0) := (others=>AXI_STREAM_MASTER_INIT_C);
+   signal asicStreams : AxiStreamMasterArray(((NUMBER_OF_ASICS_C-1)*STREAMS_PER_ASIC_C)+STREAMS_PER_ASIC_C-1 downto 0) := (others=>AXI_STREAM_MASTER_INIT_C);
 --   signal adcStreamsEn_n : slv(STREAMS_PER_ASIC_C-1 downto 0) := (others => '0');
    signal adcStreamsEn_n : Slv2Array(NUMBER_OF_ASICS_C-1 downto 0) := (others => (others => '0'));
 
@@ -928,7 +928,7 @@ begin
         adcClkRst       => rst,
         adcSerial       => adcSerial(i),
         adcStreamClk    => byteClk,--fClkP,--sysClk,
-        adcStreams      => asicStreams,
+        adcStreams      => asicStreams(((i)*STREAMS_PER_ASIC_C)+STREAMS_PER_ASIC_C-1 downto (i*STREAMS_PER_ASIC_C)),
         adcStreamsEn_n  => adcStreamsEn_n(i),
         --monitoringSig   => monitoringSig
         monitoringSig   => open
@@ -952,7 +952,7 @@ begin
          -- Deserialized data port
          rxClk             => byteClk, --asicRdClk, --fClkP,    --use frame clock
          rxRst             => byteClkRst,--asicRdClkRst,
-         adcStreams        => asicStreams(STREAMS_PER_ASIC_C-1 downto 0),
+         adcStreams        => asicStreams(((i)*STREAMS_PER_ASIC_C)+STREAMS_PER_ASIC_C-1 downto (i*STREAMS_PER_ASIC_C)),
          adcStreamsEn_n    => adcStreamsEn_n(i),
 
          -- AXI lite slave port for register access

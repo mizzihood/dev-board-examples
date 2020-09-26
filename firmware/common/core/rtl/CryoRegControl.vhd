@@ -4,7 +4,7 @@
 -- File       : RegControlEpixHR.vhd
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 04/26/2016
--- Last update: 2020-05-22
+-- Last update: 2020-09-25
 -- Platform   : Vivado 2014.4
 -- Standard   : VHDL'93/02
 -------------------------------------------------------------------------------
@@ -37,7 +37,7 @@ use work.AppPkg.all;
 library unisim;
 use unisim.vcomponents.all;
 
-entity RegisterControl is
+entity CryoRegisterControl is
    generic (
       TPD_G             : time               := 1 ns;
       EN_DEVICE_DNA_G   : boolean            := true;
@@ -75,9 +75,9 @@ entity RegisterControl is
       asicVid        : out sl;
       errInhibit     : out sl
    );
-end RegisterControl;
+end CryoRegisterControl;
 
-architecture rtl of RegisterControl is
+architecture rtl of CryoRegisterControl is
    
    type AsicAcqType is record
       SR0               : sl;
