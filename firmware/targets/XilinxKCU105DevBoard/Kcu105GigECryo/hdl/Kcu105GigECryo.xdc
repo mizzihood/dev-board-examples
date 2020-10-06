@@ -22,7 +22,11 @@ create_generated_clock -name bitClk        [get_pins U_App/U_Reg/U_iserdesClockG
 create_generated_clock -name deserClk      [get_pins U_App/U_Reg/U_iserdesClockGen/MmcmGen.U_Mmcm/CLKOUT1]
 create_generated_clock -name byteClk       [get_pins U_App/U_Reg/U_iserdesClockGen/MmcmGen.U_Mmcm/CLKOUT2]
 create_generated_clock -name asicRdClk     [get_pins U_App/U_Reg/U_iserdesClockGen/MmcmGen.U_Mmcm/CLKOUT3]
+create_generated_clock -name dnaClk        [get_pins {U_App/U_Reg/U_AxiVersion/GEN_DEVICE_DNA.DeviceDna_1/GEN_ULTRA_SCALE.DeviceDnaUltraScale_Inst/BUFGCE_DIV_Inst/O}]
+create_generated_clock -name ethClk125MHz  [get_pins GEN_GTH.U_1GigE/GEN_INT_PLL.U_MMCM/MmcmGen.U_Mmcm/CLKOUT0]
 
+set_clock_groups -asynchronous -group [get_clocks ethClk125MHz]  -group [get_clocks appClk]
+set_clock_groups -asynchronous -group [get_clocks ethClk125MHz]  -group [get_clocks byteClk]
 set_clock_groups -asynchronous -group [get_clocks sysClk]  -group [get_clocks appClk]
 set_clock_groups -asynchronous -group [get_clocks sysClk]  -group [get_clocks bitClk]
 set_clock_groups -asynchronous -group [get_clocks sysClk]  -group [get_clocks byteClk]
@@ -31,6 +35,7 @@ set_clock_groups -asynchronous -group [get_clocks sysClk]  -group [get_clocks ad
 set_clock_groups -asynchronous -group [get_clocks appClk]  -group [get_clocks byteClk]
 set_clock_groups -asynchronous -group [get_clocks appClk]  -group [get_clocks deserClk]
 set_clock_groups -asynchronous -group [get_clocks dnaClk]  -group [get_clocks byteClk]
+set_clock_groups -asynchronous -group [get_clocks dnaClk]  -group [get_clocks appClk]
 set_clock_groups -asynchronous -group [get_clocks byteClk] -group [get_clocks deserClk]
 set_clock_groups -asynchronous -group [get_clocks appClk]  -group [get_clocks adcBitClkR]
 set_clock_groups -asynchronous -group [get_clocks appClk]  -group [get_clocks adcBitClkRD4]
@@ -87,7 +92,6 @@ set_property PACKAGE_PIN AK17 [get_ports "sysClk300P"]
 set_property IOSTANDARD DIFF_SSTL12_DCI [get_ports "sysClk300P"]
 set_property ODT RTT_48 [get_ports "sysClk300P"]
 
-create_generated_clock -name dnaClk        [get_pins {U_App/U_Reg/U_AxiVersion/GEN_DEVICE_DNA.DeviceDna_1/GEN_ULTRA_SCALE.DeviceDnaUltraScale_Inst/BUFGCE_DIV_Inst/O}]
 
 set_clock_groups -asynchronous -group [get_clocks {ethClk125MHz}] -group [get_clocks {dnaClk}]
 
