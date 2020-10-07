@@ -143,3 +143,5 @@ set_property -dict { PACKAGE_PIN AA22 IOSTANDARD LVDS } [get_ports { pllInClk_p 
 set_property -dict { PACKAGE_PIN AB22 IOSTANDARD LVDS } [get_ports { pllInClk_n }]
 set_property LVDS_PRE_EMPHASIS TRUE [get_ports { pllInClk_p }]
 set_property LVDS_PRE_EMPHASIS TRUE [get_ports { asicSmpClk_p }]
+set_property LVDS_PRE_EMPHASIS TRUE [get_ports { asicSaciCmd_p }]
+set_property LVDS_PRE_EMPHASIS TRUE [get_ports { asicSaciClk_p }]
