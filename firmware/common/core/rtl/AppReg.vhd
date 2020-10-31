@@ -528,9 +528,34 @@ begin
    end generate;
 
    BYP_BATCHER : if (PRBS_TX_BATCHER_G = false) generate
-      pbrsTxMaster <= txMaster;
-      txSlave      <= pbrsTxSlave;
+      --pbrsTxMaster <= txMaster;
+     --txSlave      <= pbrsTxSlave;
+     U_STREAM_MUX : entity surf.AxiStreamMux 
+       generic map(
+         TPD_G                => TPD_G,
+         NUM_SLAVES_G         => 3,
+         PIPE_STAGES_G        => 0,
+         TDEST_LOW_G          => 0,      -- LSB of updated tdest for INDEX
+         ILEAVE_EN_G          => false,  -- Set to true if interleaving dests, arbitrate on gaps
+         ILEAVE_ON_NOTVALID_G => false,  -- Rearbitrate when tValid drops on selected channel
+         ILEAVE_REARB_G       => 0)  -- Max number of transactions between arbitrations, 0 = unlimited
+       port map(
+         -- Clock and reset
+         axisClk      => clk,
+         axisRst      => rst,
+         -- Slaves
+         sAxisMasters(2) => txMaster,
+         sAxisMasters(1) => mAxisMastersASIC(0),
+         sAxisMasters(0) => mAxisMastersASIC(1),
+         sAxisSlaves(2)  => txSlave,          
+         sAxisSlaves(1)  => mAxisSlavesASIC(0),
+         sAxisSlaves(0)  => mAxisSlavesASIC(1),
+         -- Master
+         mAxisMaster  => pbrsTxMaster,
+         mAxisSlave   => pbrsTxSlave);
    end generate;
+
+
 
    -------------------
    -- AXI-Lite PRBS RX
