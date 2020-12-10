@@ -308,7 +308,8 @@ begin
        generic map (
          TPD_G          => TPD_G,
          RST_POLARITY_G => '1',
-         RST_ASYNC_G    => false)
+         RST_ASYNC_G    => false,
+         BRK_FRAME_ON_ERROR_G => false)
        port map (
          clk         => rxClk,
          rst         => rxRst,
@@ -419,7 +420,7 @@ begin
    AxisFifo_U: entity surf.AxiStreamFifo
    generic map(
       GEN_SYNC_FIFO_G      => false,
-      FIFO_ADDR_WIDTH_G    => 13,
+      FIFO_ADDR_WIDTH_G    => 16,
       SLAVE_AXI_CONFIG_G   => AXI_STREAM_CONFIG_I_C,
       MASTER_AXI_CONFIG_G  => AXI_STREAM_CONFIG_O_C
    )
