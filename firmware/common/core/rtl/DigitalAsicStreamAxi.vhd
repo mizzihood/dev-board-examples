@@ -574,7 +574,11 @@ begin
 
          when WAIT_SOF_S =>
            if ((dFifoSof(STREAMS_PER_ASIC_G-1 downto 0) or adcStreamsEn_n) = VECTOR_OF_ONES_C(STREAMS_PER_ASIC_G-1 downto 0)) then
-             sv.state := HDR_S;
+             if s.streamDataMode='1' then
+               sv.state := IDLE_S;
+             else
+               sv.state := HDR_S;
+             end if;
            end if;
            --keeps flushing data until all SOF show up
            for i in 0 to (STREAMS_PER_ASIC_G-1) loop
