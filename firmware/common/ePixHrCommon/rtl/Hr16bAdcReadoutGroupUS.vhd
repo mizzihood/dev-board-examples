@@ -2,7 +2,7 @@
 -- File       : Ad9249ReadoutGroup.vhd
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 2016-05-26
--- Last update: 2020-05-12
+-- Last update: 2020-12-10
 -------------------------------------------------------------------------------
 -- Description:
 -- ADC Readout Controller
@@ -256,8 +256,7 @@ begin
       v := axilR;
 
       v.dataDelaySet        := (others => '0');
-      v.axilReadSlave.rdata := (others => '0');
-
+      
       --updates ctrl signal status
       v.idelayCtrlRdy := idelayCtrlRdy;
 

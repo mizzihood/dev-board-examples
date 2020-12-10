@@ -2,7 +2,7 @@
 -- File       : TrigControlAxi.vhd
 -- Company    : SLAC National Accelerator Laboratory
 -- Created    : 04/07/2017
--- Last update: 2020-05-12
+-- Last update: 2020-12-10
 -------------------------------------------------------------------------------
 -- Description: 
 -------------------------------------------------------------------------------
@@ -391,7 +391,6 @@ begin
       
       v.trig.acqCountReset := '0';
       
-      v.sAxilReadSlave.rdata := (others => '0');
       axiSlaveWaitTxn(regCon, sAxilWriteMaster, sAxilReadMaster, v.sAxilWriteSlave, v.sAxilReadSlave);
       
       axiSlaveRegister (regCon, x"00", 0, v.trig.runTriggerEnable);
