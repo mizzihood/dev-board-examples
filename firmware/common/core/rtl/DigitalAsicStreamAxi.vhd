@@ -317,7 +317,6 @@ begin
          validIn     => iRxValid(i),
          dataOut     => decDataOut(i),
          validOut    => decValidOut(i),
-         valid       => open,
          sof         => decSof(i),
          eof         => decEof(i),
          eofe        => decEofe(i),
