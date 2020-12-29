@@ -352,8 +352,8 @@ begin
          wr_clk            => rxClk,
          wr_en             => decValidOut(i),
          din(11 downto 0)  => decDataInt(i),
-         din(12)           => decEofe(i),
-         din(13)           => decEof(i),
+         din(12)           => '0',--decEofe(i),
+         din(13)           => '0',--decEof(i),
          din(14)           => decSof(i),
          --Read Ports (rd_clk domain)
          rd_clk            => axisClk,
