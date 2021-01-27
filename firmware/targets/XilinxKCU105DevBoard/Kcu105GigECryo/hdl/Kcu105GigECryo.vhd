@@ -38,6 +38,7 @@ entity Kcu105GigECryo is
       extRst     : in    sl;
       led        : out   slv(7 downto 0);
       gpioDip    : in    slv(3 downto 0);
+      user_sma_gpio_p : out sl;
       -- XADC Ports
       vPIn       : in    sl;
       vNIn       : in    sl;
@@ -110,6 +111,8 @@ architecture top_level of Kcu105GigECryo is
 
    signal pllInClk  : sl;
 
+   signal asicPulseSig : sl;
+
    attribute dont_touch              : string;
    attribute dont_touch of txMasters : signal is "TRUE";
    attribute dont_touch of txSlaves  : signal is "TRUE";
@@ -117,6 +120,9 @@ architecture top_level of Kcu105GigECryo is
    attribute dont_touch of rxSlaves  : signal is "TRUE";
 
 begin
+
+  user_sma_gpio_p <= asicPulseSig;
+  asicPulse <= asicPulseSig;
 
    -- 300MHz system clock
    U_SysClk300IBUFDS : IBUFDS
@@ -250,7 +256,7 @@ begin
          rxMasters => rxMasters,
          rxSlaves  => rxSlaves,
          asicGlblRst   => asicGlblRst,   --: out sl;
-         asicPulse     => asicPulse,     --: out sl;
+         asicPulse     => asicPulseSig,  --: out sl;
          asicSaciClk_p => asicSaciClk_p, --: out sl;
          asicSaciClk_n => asicSaciClk_n, --: out sl;
          asicSaciCmd_p => asicSaciCmd_p, --: out sl;

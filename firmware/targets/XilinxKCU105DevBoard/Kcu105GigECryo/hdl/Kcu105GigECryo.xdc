@@ -84,6 +84,9 @@ set_property IOSTANDARD LVCMOS12 [get_ports "gpioDip[2]"]
 set_property PACKAGE_PIN AN14 [get_ports "gpioDip[3]"]
 set_property IOSTANDARD LVCMOS12 [get_ports "gpioDip[3]"]
 
+#GPIO SMA
+set_property -dict { PACKAGE_PIN  H27 IOSTANDARD LVCMOS18 } [get_ports { user_sma_gpio_p }]
+
 # On-Board System clock
 set_property ODT RTT_48 [get_ports "sysClk300N"]
 set_property PACKAGE_PIN AK16 [get_ports "sysClk300N"]
