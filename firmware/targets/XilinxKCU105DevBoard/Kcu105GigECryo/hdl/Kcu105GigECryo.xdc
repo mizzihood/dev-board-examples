@@ -105,7 +105,7 @@ set_clock_groups -asynchronous -group [get_clocks {ethClk125MHz}] -group [get_cl
 #set_property -dict { PACKAGE_PIN  AN16 IOSTANDARD LVCMOS12 } [get_ports { rstSwitch }]
 # FEMB-specific constraints
 set_property -dict { PACKAGE_PIN  V27 IOSTANDARD LVCMOS18 } [get_ports { asicGlblRst }]
-set_property -dict { PACKAGE_PIN  V28 IOSTANDARD LVCMOS18 } [get_ports { pulse }]
+set_property -dict { PACKAGE_PIN  V28 IOSTANDARD LVCMOS18 } [get_ports { asicPulse }]
 set_property -dict { PACKAGE_PIN  V29 IOSTANDARD LVDS } [get_ports { asicSaciClk_p }]
 set_property -dict { PACKAGE_PIN  W29 IOSTANDARD LVDS } [get_ports { asicSaciClk_n }]
 set_property -dict { PACKAGE_PIN  V22 IOSTANDARD LVDS } [get_ports { asicSaciCmd_p }]
